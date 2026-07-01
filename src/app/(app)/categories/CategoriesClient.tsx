@@ -95,16 +95,12 @@ function CategoryGroup({
                 >
                   <Plus size={13} />
                 </button>
-                {!cat.isSystem && (
-                  <>
-                    <button onClick={() => openEditCat(cat)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDeleteCat(cat._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
-                  </>
-                )}
+                <button onClick={() => openEditCat(cat)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => handleDeleteCat(cat._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
 
