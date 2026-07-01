@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base: #0d0d1a;
+  --sidebar-bg: #100f1f;
+  --card-bg: #141427;
+  --card-border: rgba(255,255,255,0.08);
+  --foreground: #f0f0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-base);
+  color: var(--foreground);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg-base);
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* input autofill dark fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #141427 inset;
+  -webkit-text-fill-color: #f0f0ff;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* native select dark override */
+select option {
+  background: #141427;
+  color: #f0f0ff;
+}
