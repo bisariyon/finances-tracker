@@ -38,7 +38,7 @@ export default function Sidebar() {
           Fintrack
         </span>
         <div className="flex items-center gap-3">
-          <UserButton signOutUrl="/sign-in" />
+          <UserButton />
           <button onClick={() => setOpen(true)} className="text-white/70 hover:text-white">
             <Menu size={22} />
           </button>
@@ -96,7 +96,7 @@ export default function Sidebar() {
         {/* User */}
         <div className="px-4 py-4 border-t border-white/10">
           <div className="flex items-center gap-3">
-            <UserButton signOutUrl="/sign-in" />
+            <UserButton />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-white/40">Signed in as</p>
               <p className="text-sm text-white/80 font-medium truncate">Your Account</p>

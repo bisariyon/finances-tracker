@@ -413,7 +413,7 @@ export async function getDashboardData(month: number, year: number) {
   }
 
   // Monthly trend (last 6 months)
-  const trendData = [];
+  const trendData: { month: string; income: number; expense: number }[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(year, month - 1 - i, 1);
     const m = d.getMonth() + 1;
