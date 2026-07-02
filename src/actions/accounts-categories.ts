@@ -33,7 +33,7 @@ async function seedDefaultCategories(userId: string) {
       isSystem: true,
     }));
     await Category.insertMany(defaults, { ordered: false });
-  } catch (e) {
+  } catch {
     // Ignore duplicate key errors if another parallel request already inserted them
   }
 }
@@ -42,13 +42,13 @@ export async function getAccounts() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   await connectToDatabase();
-  const accounts = await Account.find({ userId }).sort({ createdAt: 1 }).lean();
-  return serializeDocument(accounts);
+  const accounts = await Account.find({ userId }).sort({ isDefault: -1, createdAt: 1 }).lean();
+  return serializeDocument(accounts) as any;
 }
 
 export async function createAccount(data: {
   name: string;
-  type: string;
+  type: 'bank' | 'wallet' | 'cash' | 'credit_card' | 'meal_card' | 'investment';
   balance: number;
   color: string;
 }) {
@@ -74,6 +74,23 @@ export async function updateAccount(
   revalidatePath("/");
   revalidatePath("/accounts");
   return serializeDocument(account);
+}
+
+export async function setDefaultAccount(id: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+  await connectToDatabase();
+  // strict:false ensures isDefault is written even if the cached Mongoose
+  // model was compiled before this field was added to the schema
+  await Account.updateMany({ userId }, { $set: { isDefault: false } }, { strict: false } as object);
+  const updated = await Account.findOneAndUpdate(
+    { _id: id, userId },
+    { $set: { isDefault: true } },
+    { new: true, strict: false } as object
+  );
+  if (!updated) throw new Error('Account not found');
+  revalidatePath("/accounts");
+  return { success: true };
 }
 
 export async function deleteAccount(id: string) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionSchema, type TransactionInput } from '@/lib/validations';
 import {
@@ -47,6 +47,7 @@ type Props = {
   accounts: AccountRef[];
   categories: CategoryRef[];
   merchants: MerchantRef[];
+  defaultAccountId?: string;
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -64,6 +65,7 @@ export default function TransactionsClient({
   initialTotal,
   accounts,
   categories,
+  defaultAccountId,
 }: Props) {
   const [transactions, setTransactions] = useState<TransactionRow[]>(initialTransactions);
   const [total, setTotal] = useState(initialTotal);
@@ -88,6 +90,7 @@ export default function TransactionsClient({
     handleSubmit,
     reset,
     setValue,
+    control,
     formState: { errors },
   } = useForm<TransactionInput>({
     resolver: zodResolver(TransactionSchema),
@@ -95,11 +98,14 @@ export default function TransactionsClient({
       amount: 0,
       type: 'expense',
       date: new Date().toISOString().split('T')[0],
-      accountId: accounts[0]?._id ?? '',
+      accountId: defaultAccountId ?? accounts[0]?._id ?? '',
       tags: [],
       notes: '',
     },
   });
+
+  const watchedCategoryId = useWatch({ control, name: 'categoryId' });
+  const watchedAccountId = useWatch({ control, name: 'accountId' });
 
   // ── Loaders ────────────────────────────────────────────────────────────────
   async function load(p: number, s: string, fType: string, fAcc: string, fCat: string) {
@@ -124,7 +130,7 @@ export default function TransactionsClient({
       amount: 0,
       type: defaultType,
       date: new Date().toISOString().split('T')[0],
-      accountId: accounts[0]?._id ?? '',
+      accountId: defaultAccountId ?? accounts[0]?._id ?? '',
       tags: [],
       notes: '',
     });
@@ -169,10 +175,10 @@ export default function TransactionsClient({
   }
 
   function selectMerchant(m: MerchantRef) {
-    setValue('merchantName', m.canonicalName);
-    setValue('merchantId', m._id);
-    const catId = typeof m.categoryId === 'object' ? m.categoryId?._id : undefined;
-    if (catId) setValue('categoryId', catId);
+    setValue('merchantName', m.canonicalName, { shouldDirty: true });
+    setValue('merchantId', m._id, { shouldDirty: true });
+    const catId = typeof m.categoryId === 'object' ? m.categoryId?._id : (typeof m.categoryId === 'string' ? m.categoryId : undefined);
+    if (catId) setValue('categoryId', catId, { shouldDirty: true, shouldValidate: true });
     setShowSuggestions(false);
     setMerchantSuggestions([]);
   }
@@ -281,11 +287,11 @@ export default function TransactionsClient({
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium">Date</th>
+                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium hidden sm:table-cell">Date</th>
                 <th className="text-left px-4 py-3 text-xs text-white/40 font-medium">Merchant / Note</th>
                 <th className="text-left px-4 py-3 text-xs text-white/40 font-medium hidden sm:table-cell">Category</th>
-                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium hidden md:table-cell">Account</th>
-                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium">Type</th>
+                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium hidden md:table-cell">From account</th>
+                <th className="text-left px-4 py-3 text-xs text-white/40 font-medium hidden sm:table-cell">Type</th>
                 <th className="text-right px-4 py-3 text-xs text-white/40 font-medium">Amount</th>
                 <th className="px-4 py-3 text-xs text-white/40 font-medium"></th>
               </tr>
@@ -306,31 +312,48 @@ export default function TransactionsClient({
               ) : (
                 transactions.map((tx) => (
                   <tr key={tx._id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
-                    <td className="px-4 py-3 text-xs text-white/50">{formatDate(tx.date)}</td>
+                    <td className="px-4 py-3 text-xs text-white/50 hidden sm:table-cell">{formatDate(tx.date)}</td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="text-white/90 text-sm font-medium">{tx.merchantName || tx.notes || '—'}</p>
-                        {tx.tags && tx.tags.length > 0 && (
-                          <div className="flex gap-1 mt-0.5">
-                            {tx.tags.slice(0, 2).map((t) => (
-                              <span key={t} className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">{t}</span>
-                            ))}
-                          </div>
-                        )}
+                        <p className="text-white/90 text-sm font-medium">
+                          {tx.type === 'transfer'
+                            ? (() => {
+                              const dest = tx.toAccountId && typeof tx.toAccountId === 'object' ? tx.toAccountId.name : '';
+                              return dest ? `→ ${dest}` : 'Transfer';
+                            })()
+                            : tx.type === 'income'
+                            ? (tx.notes || 'Income')
+                            : (tx.merchantName || tx.notes || '—')}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <span className="sm:hidden">
+                            <span className={cn('text-[9px] font-medium px-1.5 py-0.5 rounded-full border', TYPE_COLORS[tx.type] ?? 'bg-white/5 text-white/40 border-white/10')}>
+                              {tx.type}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-white/30 sm:hidden">{formatDate(tx.date)}</span>
+                          {tx.tags && tx.tags.length > 0 && tx.tags.slice(0, 2).map((t) => (
+                            <span key={t} className="text-[10px] text-white/30 bg-white/5 px-1.5 py-0.5 rounded-full">{t}</span>
+                          ))}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      {tx.categoryId ? (
+                      {tx.type === 'transfer' ? (
+                        <span className="text-xs text-sky-400/60 italic">internal transfer</span>
+                      ) : tx.categoryId ? (
                         <div className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full" style={{ background: tx.categoryId.color }} />
                           <span className="text-xs text-white/60">{tx.categoryId.name}</span>
                         </div>
+                      ) : tx.type === 'income' ? (
+                        <span className="text-xs text-emerald-400/60 italic">income</span>
                       ) : <span className="text-white/20 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-xs text-white/50">{tx.accountId?.name}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <span className={cn('text-[10px] font-medium px-2 py-1 rounded-full border', TYPE_COLORS[tx.type] ?? 'bg-white/5 text-white/40 border-white/10')}>
                         {tx.type}
                       </span>
@@ -341,7 +364,7 @@ export default function TransactionsClient({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 transition-opacity">
                         <button onClick={() => openEdit(tx)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
                           <Pencil size={13} />
                         </button>
@@ -437,14 +460,18 @@ export default function TransactionsClient({
             {/* Account */}
             <div>
               <label className="text-sm text-white/70 mb-1.5 block">Account</label>
-              <select {...register('accountId')} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/50">
+              <select
+                value={watchedAccountId ?? ''}
+                onChange={(e) => setValue('accountId', e.target.value)}
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/50"
+              >
                 {accounts.map((a) => <option key={a._id} value={a._id} className="bg-[#1a1a2e]">{a.name}</option>)}
               </select>
               {errors.accountId && <p className="text-xs text-rose-400 mt-1">{errors.accountId.message}</p>}
             </div>
 
             {/* To Account (transfer only) */}
-            {txType === 'transfer' && (
+            {(txType as string) === 'transfer' && (
               <div>
                 <label className="text-sm text-white/70 mb-1.5 block">To Account</label>
                 <select {...register('toAccountId')} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/50">
@@ -454,56 +481,67 @@ export default function TransactionsClient({
               </div>
             )}
 
-            {/* Category */}
-            <div>
-              <label className="text-sm text-white/70 mb-1.5 block">Category</label>
-              <select {...register('categoryId')} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/50">
-                <option value="">No category</option>
-                {categories
-                  .filter((c) => txType === 'income' ? c.type === 'income' : c.type === 'expense')
-                  .map((c) => <option key={c._id} value={c._id} className="bg-[#1a1a2e]">{c.name}</option>)}
-              </select>
-            </div>
-
-            {/* Merchant with autocomplete */}
-            <div>
-              <label className="text-sm text-white/70 mb-1.5 block">Merchant / Payee</label>
-              <div className="relative">
-                <Input
-                  className="bg-white/5 border-white/10 text-white"
-                  placeholder="e.g. Zomato, Amazon..."
-                  autoComplete="off"
-                  {...register('merchantName')}
-                  onChange={(e) => handleMerchantInput(e.target.value)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                />
-                {showSuggestions && merchantSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-(--card-bg) border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
-                    {merchantSuggestions.map((m) => (
-                      <button
-                        type="button"
-                        key={m._id}
-                        onMouseDown={() => selectMerchant(m)}
-                        className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center justify-between gap-2"
-                      >
-                        <div>
-                          <p className="text-sm text-white/90 font-medium">{m.canonicalName}</p>
-                          {m.aliases && m.aliases.length > 0 && (
-                            <p className="text-xs text-white/30">{m.aliases.slice(0, 2).join(', ')}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {m.categoryId && typeof m.categoryId === 'object' && (
-                            <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">{m.categoryId.name}</span>
-                          )}
-                          <span className="text-xs text-white/30">×{m.usageCount ?? 0}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* Merchant — hidden for transfers and income */}
+            {(txType as string) !== 'transfer' && (txType as string) !== 'income' && (
+              <div>
+                <label className="text-sm text-white/70 mb-1.5 block">Merchant / Payee</label>
+                <div className="relative">
+                  <Input
+                    className="bg-white/5 border-white/10 text-white"
+                    placeholder="e.g. Zomato, Amazon..."
+                    autoComplete="off"
+                    {...register('merchantName')}
+                    onChange={(e) => handleMerchantInput(e.target.value)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  />
+                  {showSuggestions && merchantSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-(--card-bg) border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {merchantSuggestions.map((m) => (
+                        <button
+                          type="button"
+                          key={m._id}
+                          onMouseDown={() => selectMerchant(m)}
+                          className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center justify-between gap-2"
+                        >
+                          <div>
+                            <p className="text-sm text-white/90 font-medium">{m.canonicalName}</p>
+                            {m.aliases && m.aliases.length > 0 && (
+                              <p className="text-xs text-white/30">{m.aliases.slice(0, 2).join(', ')}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {m.categoryId && typeof m.categoryId === 'object' && (
+                              <span className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">{m.categoryId.name}</span>
+                            )}
+                            <span className="text-xs text-white/30">×{m.usageCount ?? 0}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Category — hidden for transfers only */}
+            {(txType as string) !== 'transfer' && (
+              <div>
+                <label className="text-sm text-white/70 mb-1.5 block">
+                  Category
+                  {watchedCategoryId && <span className="ml-2 text-[10px] text-violet-400">auto-filled ✓</span>}
+                </label>
+                <select
+                  value={watchedCategoryId ?? ''}
+                  onChange={(e) => setValue('categoryId', e.target.value, { shouldDirty: true })}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/50"
+                >
+                  <option value="">No category</option>
+                  {categories
+                    .filter((c) => (txType as string) === 'income' ? c.type === 'income' : c.type === 'expense')
+                    .map((c) => <option key={c._id} value={c._id} className="bg-[#1a1a2e]">{c.name}</option>)}
+                </select>
+              </div>
+            )}
 
             {/* Notes */}
             <div>

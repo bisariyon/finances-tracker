@@ -11,6 +11,9 @@ export default async function TransactionsPage() {
     getTransactions({ page: 1, limit: 30 }),
   ]);
 
+  // Default account: first find one explicitly marked, then fall back to first
+  const defaultAccount = accounts.find((a: { isDefault?: boolean }) => a.isDefault === true) ?? accounts[0];
+
   return (
     <TransactionsClient
       initialTransactions={transactions}
@@ -18,6 +21,7 @@ export default async function TransactionsPage() {
       accounts={accounts}
       categories={categories}
       merchants={merchants}
+      defaultAccountId={defaultAccount?._id ?? accounts[0]?._id ?? ''}
     />
   );
 }

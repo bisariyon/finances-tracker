@@ -31,6 +31,8 @@ type RecentTransaction = {
   merchantName?: string;
   categoryId?: { name: string; color: string; icon: string };
   accountId?: { name: string };
+  toAccountId?: { name: string };
+  notes?: string;
   tags?: string[];
 };
 
@@ -267,25 +269,55 @@ export default function DashboardClient({
             <div className="py-12 text-center text-white/30 text-sm">No transactions yet</div>
           ) : (
             <div className="space-y-2">
-              {(data.recentTransactions as RecentTransaction[]).map((tx) => (
-                <div key={tx._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-                    style={{ background: (tx.categoryId?.color ?? '#ffffff') + '30', color: tx.categoryId?.color ?? '#fff' }}
-                  >
-                    {tx.merchantName?.[0]?.toUpperCase() ?? tx.categoryId?.icon?.[0] ?? '?'}
+              {(data.recentTransactions as RecentTransaction[]).map((tx) => {
+                const bg = 
+                  tx.type === 'transfer' ? 'rgba(56, 189, 248, 0.2)' : 
+                  tx.type === 'income' ? 'rgba(16, 185, 129, 0.2)' : 
+                  tx.type === 'refund' ? 'rgba(245, 158, 11, 0.2)' : 
+                  (tx.categoryId?.color ?? '#ffffff') + '30';
+
+                const color = 
+                  tx.type === 'transfer' ? '#38bdf8' : 
+                  tx.type === 'income' ? '#10b981' : 
+                  tx.type === 'refund' ? '#f59f0b' : 
+                  tx.categoryId?.color ?? '#fff';
+
+                const icon = 
+                  tx.type === 'transfer' ? '⇄' : 
+                  tx.type === 'income' ? '📥' : 
+                  tx.type === 'refund' ? '↩' : 
+                  (tx.merchantName?.[0]?.toUpperCase() ?? tx.categoryId?.icon?.[0] ?? '?');
+
+                const name = 
+                  tx.type === 'transfer'
+                    ? `→ ${tx.toAccountId?.name || 'Account'}`
+                    : tx.type === 'income'
+                    ? (tx.notes || 'Income')
+                    : (tx.merchantName || tx.categoryId?.name || tx.type);
+
+                const isPositive = tx.type === 'income' || tx.type === 'refund';
+                const amountColor = isPositive ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-sky-400' : 'text-rose-400';
+
+                return (
+                  <div key={tx._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+                      style={{ background: bg, color: color }}
+                    >
+                      {icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/90 text-sm font-medium truncate">
+                        {name}
+                      </p>
+                      <p className="text-white/40 text-xs">{formatDate(tx.date)} • {tx.accountId?.name}</p>
+                    </div>
+                    <span className={cn('text-sm font-bold', amountColor)}>
+                      {isPositive ? '+' : '-'}{formatCurrency(tx.amount)}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white/90 text-sm font-medium truncate">
-                      {tx.merchantName ?? tx.categoryId?.name ?? tx.type}
-                    </p>
-                    <p className="text-white/40 text-xs">{formatDate(tx.date)} • {tx.accountId?.name}</p>
-                  </div>
-                  <span className={cn('text-sm font-bold', tx.type === 'income' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-sky-400' : 'text-rose-400')}>
-                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -302,7 +334,7 @@ export default function DashboardClient({
               <p className="text-white/30 text-sm text-center py-4">No accounts yet</p>
             ) : (
               <div className="space-y-2">
-                {(data.accounts as AccountSummary[]).slice(0, 4).map((acc) => (
+                {(data.accounts as unknown as AccountSummary[]).slice(0, 4).map((acc) => (
                   <div key={acc._id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span>{ACCOUNT_TYPE_ICONS[acc.type] || '💰'}</span>

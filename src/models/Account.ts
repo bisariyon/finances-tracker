@@ -6,6 +6,7 @@ export interface IAccount extends Document {
   type: 'bank' | 'wallet' | 'cash' | 'credit_card' | 'meal_card' | 'investment';
   balance: number;
   color: string;
+  isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,9 +21,12 @@ const AccountSchema = new Schema<IAccount>(
       required: true 
     },
     balance: { type: Number, default: 0 },
-    color: { type: String, default: '#000000' }
+    color: { type: String, default: '#000000' },
+    isDefault: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
-export const Account = mongoose.models.Account || mongoose.model<IAccount>('Account', AccountSchema);
+// Delete cached model so schema changes take effect on hot reload
+delete mongoose.models['Account'];
+export const Account = mongoose.model<IAccount>('Account', AccountSchema);

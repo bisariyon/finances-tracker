@@ -10,11 +10,8 @@ export const ACCOUNT_TYPES = [
 export const TRANSACTION_TYPES = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
-  { value: "transfer", label: "Transfer" },
-  { value: "investment", label: "Investment" },
+  { value: "transfer", label: "Self Transfer" },
   { value: "refund", label: "Refund" },
-  { value: "loan", label: "Loan" },
-  { value: "repayment", label: "Repayment" },
 ] as const;
 
 export const CATEGORY_TYPES = [

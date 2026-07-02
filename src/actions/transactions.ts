@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import connectToDatabase from "@/lib/mongoose";
 import { Transaction } from "@/models/Transaction";
 import { Account } from "@/models/Account";
+import "@/models/Category";
 import { incrementMerchantUsage } from "./merchants";
 import { serializeDocument, startOfMonth, endOfMonth } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -24,7 +25,6 @@ export async function getTransactions(filters?: {
   if (!userId) throw new Error("Unauthorized");
   await connectToDatabase();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const query: any = { userId };
   const page = filters?.page ?? 1;
   const limit = filters?.limit ?? 20;
@@ -367,6 +367,7 @@ export async function getDashboardData(month: number, year: number) {
       .limit(10)
       .populate("categoryId", "name color icon")
       .populate("accountId", "name type color")
+      .populate("toAccountId", "name type color")
       .lean(),
   ]);
 
@@ -387,7 +388,6 @@ export async function getDashboardData(month: number, year: number) {
   > = {};
   for (const tx of monthlyTx) {
     if (tx.type === "expense" && tx.categoryId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cat = tx.categoryId as any;
       const key = cat._id.toString();
       if (!categoryMap[key]) {
@@ -487,7 +487,6 @@ export async function getAnalyticsData(year: number) {
   > = {};
   for (const tx of allTx) {
     if (tx.type === "expense" && tx.categoryId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cat = tx.categoryId as any;
       const key = cat._id.toString();
       if (!categoryMap[key])
@@ -518,3 +517,69 @@ export async function getAnalyticsData(year: number) {
     savings: totalIncome - totalExpense,
   });
 }
+
+export async function getMonthlyBreakdown(year: number, month: number) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+  await connectToDatabase();
+
+  const start = startOfMonth(year, month);
+  const end = endOfMonth(year, month);
+
+  const txs = await Transaction.find({
+    userId,
+    date: { $gte: start, $lte: end },
+  })
+    .populate("categoryId", "name color icon")
+    .populate("accountId", "name type color")
+    .lean();
+
+  const categoryMap: Record<
+    string,
+    { name: string; color: string; icon: string; amount: number }
+  > = {};
+  
+  const merchantMap: Record<string, { name: string; amount: number }> = {};
+  
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  for (const tx of txs) {
+    if (tx.type === "income") {
+      totalIncome += tx.amount;
+    } else if (tx.type === "expense") {
+      totalExpense += tx.amount;
+      
+      if (tx.categoryId) {
+        const cat = tx.categoryId as any;
+        const catId = cat._id.toString();
+        if (!categoryMap[catId]) {
+          categoryMap[catId] = {
+            name: cat.name,
+            color: cat.color,
+            icon: cat.icon,
+            amount: 0,
+          };
+        }
+        categoryMap[catId].amount += tx.amount;
+      }
+
+      if (tx.merchantName) {
+        const mKey = tx.merchantName;
+        if (!merchantMap[mKey]) {
+          merchantMap[mKey] = { name: mKey, amount: 0 };
+        }
+        merchantMap[mKey].amount += tx.amount;
+      }
+    }
+  }
+
+  return serializeDocument({
+    totalIncome,
+    totalExpense,
+    savings: totalIncome - totalExpense,
+    categoryBreakdown: Object.values(categoryMap).sort((a, b) => b.amount - a.amount),
+    merchantBreakdown: Object.values(merchantMap).sort((a, b) => b.amount - a.amount),
+  });
+}
+

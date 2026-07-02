@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CategorySchema, MerchantSchema, type CategoryInput, type MerchantInput } from '@/lib/validations';
 import { createCategory, updateCategory, deleteCategory } from '@/actions/accounts-categories';
@@ -87,7 +87,7 @@ function CategoryGroup({
                   ? <ChevronDown size={14} className="text-white/30" />
                   : <ChevronRight size={14} className="text-white/30" />}
               </button>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-1 transition-opacity">
                 <button
                   onClick={() => openCreateMerchant(cat._id)}
                   className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-emerald-400 transition-colors"
@@ -120,7 +120,7 @@ function CategoryGroup({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-white/30">×{m.usageCount ?? 0}</span>
-                          <div className="flex gap-1 opacity-0 group-hover/m:opacity-100 transition-opacity">
+                          <div className="flex gap-1 transition-opacity">
                             <button onClick={() => openEditMerchant(m)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-violet-400">
                               <Pencil size={11} />
                             </button>
@@ -164,6 +164,7 @@ export default function CategoriesClient({
   const [aliases, setAliases] = useState<string[]>([]);
   const [selectedCatColor, setSelectedCatColor] = useState(DEFAULT_CAT_COLOR);
   const [isPending, startTransition] = useTransition();
+  const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
 
   // Category form
   const {
@@ -171,11 +172,14 @@ export default function CategoriesClient({
     handleSubmit: catHandleSubmit,
     reset: catReset,
     setValue: catSetValue,
+    control: catControl,
     formState: { errors: catErrors },
   } = useForm<CategoryInput>({
     resolver: zodResolver(CategorySchema),
     defaultValues: { name: '', type: 'expense', color: DEFAULT_CAT_COLOR, icon: DEFAULT_CAT_ICON },
   });
+
+  const watchedCatType = useWatch({ control: catControl, name: 'type' });
 
   // Merchant form
   const {
@@ -311,22 +315,41 @@ export default function CategoriesClient({
         </div>
       </div>
 
-      <Tabs defaultValue="expense">
-        <TabsList className="bg-white/5 border border-white/10">
-          <TabsTrigger value="expense" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-white/50">
-            Expense ({expenseCategories.length})
-          </TabsTrigger>
-          <TabsTrigger value="income" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white text-white/50">
-            Income ({incomeCategories.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="expense" className="mt-4">
+      {/* Segmented Tab Switcher */}
+      <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('expense')}
+          className={cn(
+            "px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+            activeTab === 'expense'
+              ? "bg-rose-500/20 border-rose-500/30 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+              : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+          )}
+        >
+          Expense ({expenseCategories.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('income')}
+          className={cn(
+            "px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+            activeTab === 'income'
+              ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+              : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+          )}
+        >
+          Income ({incomeCategories.length})
+        </button>
+      </div>
+
+      <div className="mt-4">
+        {activeTab === 'expense' ? (
           <CategoryGroup cats={expenseCategories} {...groupProps} />
-        </TabsContent>
-        <TabsContent value="income" className="mt-4">
+        ) : (
           <CategoryGroup cats={incomeCategories} {...groupProps} />
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* ── Category Dialog ───────────────────────────────────────────────── */}
       <Dialog open={catOpen} onOpenChange={setCatOpen}>
@@ -346,21 +369,26 @@ export default function CategoriesClient({
             <div>
               <label className="text-sm text-white/70 mb-1.5 block">Type</label>
               <div className="flex gap-2">
-                {CATEGORY_TYPES.map((t) => (
-                  <button
-                    type="button"
-                    key={t.value}
-                    onClick={() => catSetValue('type', t.value as CategoryInput['type'])}
-                    className={cn(
-                      'flex-1 py-2 rounded-lg text-sm font-medium border transition-all',
-                      editingCat?.type === t.value || (!editingCat && t.value === 'expense')
-                        ? t.value === 'expense' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'bg-white/5 border-white/10 text-white/50'
-                    )}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+                {CATEGORY_TYPES.map((t) => {
+                  const isActive = watchedCatType === t.value;
+                  return (
+                    <button
+                      type="button"
+                      key={t.value}
+                      onClick={() => catSetValue('type', t.value as CategoryInput['type'], { shouldDirty: true, shouldValidate: true })}
+                      className={cn(
+                        'flex-1 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer hover:bg-white/10',
+                        isActive
+                          ? t.value === 'expense'
+                            ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
+                            : 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                          : 'bg-white/5 border-white/10 text-white/40'
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
