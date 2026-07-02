@@ -81,6 +81,8 @@ export default function TransactionsClient({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [txType, setTxType] = useState<TransactionInput['type']>('expense');
   const merchantTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedTxDetails, setSelectedTxDetails] = useState<TransactionRow | null>(null);
 
   const limit = 30;
   const totalPages = Math.ceil(total / limit);
@@ -231,9 +233,39 @@ export default function TransactionsClient({
           <h1 className="text-2xl font-bold text-white">Transactions</h1>
           <p className="text-white/50 text-sm mt-0.5">{total} total transactions</p>
         </div>
-        <Button onClick={openCreate} className="bg-violet-500 hover:bg-violet-600 text-white gap-2">
-          <Plus size={16} /> Add Transaction
-        </Button>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Mode Switcher */}
+          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsEditMode(false)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                !isEditMode
+                  ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                  : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+              )}
+            >
+              View Mode
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditMode(true)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                isEditMode
+                  ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                  : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+              )}
+            >
+              Edit Mode
+            </button>
+          </div>
+
+          <Button onClick={openCreate} className="bg-violet-500 hover:bg-violet-600 text-white rounded-full w-9 h-9 flex items-center justify-center p-0 shrink-0 shadow-lg shadow-violet-500/10">
+            <Plus size={18} />
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -283,7 +315,7 @@ export default function TransactionsClient({
 
       {/* Table */}
       <div className="rounded-2xl border border-white/10 bg-(--card-bg) overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-4">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
@@ -311,7 +343,18 @@ export default function TransactionsClient({
                 </tr>
               ) : (
                 transactions.map((tx) => (
-                  <tr key={tx._id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                  <tr
+                    key={tx._id}
+                    onClick={() => {
+                      if (!isEditMode) {
+                        setSelectedTxDetails(tx);
+                      }
+                    }}
+                    className={cn(
+                      "border-b border-white/5 hover:bg-white/5 transition-colors group",
+                      !isEditMode && "cursor-pointer"
+                    )}
+                  >
                     <td className="px-4 py-3 text-xs text-white/50 hidden sm:table-cell">{formatDate(tx.date)}</td>
                     <td className="px-4 py-3">
                       <div>
@@ -359,19 +402,25 @@ export default function TransactionsClient({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={cn('text-sm font-bold', tx.type === 'income' || tx.type === 'refund' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-sky-400' : 'text-rose-400')}>
+                      <span className={cn('text-sm font-bold whitespace-nowrap', tx.type === 'income' || tx.type === 'refund' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-sky-400' : 'text-rose-400')}>
                         {tx.type === 'income' || tx.type === 'refund' ? '+' : '-'}{formatCurrency(tx.amount)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 transition-opacity">
-                        <button onClick={() => openEdit(tx)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => handleDelete(tx._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                    <td className="px-4 py-3 text-right" onClick={(e) => { if (isEditMode) e.stopPropagation(); }}>
+                      {isEditMode ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(tx)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => handleDelete(tx._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-white/20 group-hover:text-violet-400 transition-colors font-medium select-none pr-1 whitespace-nowrap">
+                          Details →
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -553,6 +602,75 @@ export default function TransactionsClient({
               {isPending ? 'Saving...' : editing ? 'Update Transaction' : 'Add Transaction'}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Dialog */}
+      <Dialog open={!!selectedTxDetails} onOpenChange={() => setSelectedTxDetails(null)}>
+        <DialogContent className="sm:max-w-md bg-[#16162a] border-white/10 text-white rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">Transaction Details</DialogTitle>
+          </DialogHeader>
+          {selectedTxDetails && (
+            <div className="space-y-4 pt-2">
+              <div className="text-center py-6 bg-white/5 border border-white/10 rounded-2xl">
+                <p className="text-white/40 text-xs uppercase tracking-wider font-semibold">Amount</p>
+                <p className={cn(
+                  'text-3xl font-extrabold mt-1.5',
+                  selectedTxDetails.type === 'income' || selectedTxDetails.type === 'refund' ? 'text-emerald-400' : selectedTxDetails.type === 'transfer' ? 'text-sky-400' : 'text-rose-400'
+                )}>
+                  {selectedTxDetails.type === 'income' || selectedTxDetails.type === 'refund' ? '+' : '-'}{formatCurrency(selectedTxDetails.amount)}
+                </p>
+                <span className={cn('inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full mt-2 border', TYPE_COLORS[selectedTxDetails.type] ?? 'bg-white/5 text-white/40 border-white/10')}>
+                  {selectedTxDetails.type === 'transfer' ? 'self transfer' : selectedTxDetails.type}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-white/40 text-xs block mb-0.5">Date</span>
+                  <span className="text-white/90 font-medium">{formatDate(selectedTxDetails.date)}</span>
+                </div>
+                <div>
+                  <span className="text-white/40 text-xs block mb-0.5">Account / Source</span>
+                  <span className="text-white/90 font-medium">{selectedTxDetails.accountId?.name || '—'}</span>
+                </div>
+                
+                {selectedTxDetails.type === 'transfer' && (
+                  <div>
+                    <span className="text-white/40 text-xs block mb-0.5">Transfer To</span>
+                    <span className="text-white/90 font-medium">
+                      {typeof selectedTxDetails.toAccountId === 'object' ? selectedTxDetails.toAccountId?.name : '—'}
+                    </span>
+                  </div>
+                )}
+
+                {selectedTxDetails.type !== 'transfer' && selectedTxDetails.categoryId && (
+                  <div>
+                    <span className="text-white/40 text-xs block mb-0.5">Category</span>
+                    <span className="text-white/90 font-medium flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: selectedTxDetails.categoryId.color }} />
+                      {selectedTxDetails.categoryId.name}
+                    </span>
+                  </div>
+                )}
+
+                {selectedTxDetails.type !== 'transfer' && selectedTxDetails.type !== 'income' && selectedTxDetails.merchantName && (
+                  <div>
+                    <span className="text-white/40 text-xs block mb-0.5">Merchant / Payee</span>
+                    <span className="text-white/90 font-medium">{selectedTxDetails.merchantName}</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedTxDetails.notes && (
+                <div className="border-t border-white/10 pt-3">
+                  <span className="text-white/40 text-xs block mb-1">Notes</span>
+                  <p className="text-white/80 text-sm bg-white/5 p-2.5 rounded-xl border border-white/5">{selectedTxDetails.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
