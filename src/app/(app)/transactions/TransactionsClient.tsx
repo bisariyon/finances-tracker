@@ -108,6 +108,8 @@ export default function TransactionsClient({
 
   const watchedCategoryId = useWatch({ control, name: 'categoryId' });
   const watchedAccountId = useWatch({ control, name: 'accountId' });
+  const watchedMerchantName = useWatch({ control, name: 'merchantName' });
+  const watchedMerchantId = useWatch({ control, name: 'merchantId' });
 
   // ── Loaders ────────────────────────────────────────────────────────────────
   async function load(p: number, s: string, fType: string, fAcc: string, fCat: string) {
@@ -167,6 +169,7 @@ export default function TransactionsClient({
   // ── Merchant autocomplete ──────────────────────────────────────────────────
   async function handleMerchantInput(val: string) {
     setValue('merchantName', val);
+    setValue('merchantId', '');
     clearTimeout(merchantTimeout.current);
     if (val.length < 1) { setMerchantSuggestions([]); return; }
     merchantTimeout.current = setTimeout(async () => {
@@ -187,6 +190,12 @@ export default function TransactionsClient({
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   function onSubmit(values: TransactionInput) {
+    const isMerchantRequired = (txType as string) !== 'transfer' && (txType as string) !== 'income';
+    if (isMerchantRequired && !values.merchantId) {
+      toast.error('Please select an existing merchant from the suggestions list. New merchants must be added on the Categories page first.');
+      return;
+    }
+
     startTransition(async () => {
       try {
         if (editing) {
@@ -225,6 +234,8 @@ export default function TransactionsClient({
     await load(1, search, t, a, c);
   }
 
+  const { onChange: handleFormMerchantChange, ...merchantRegisterProps } = register('merchantName');
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -233,14 +244,14 @@ export default function TransactionsClient({
           <h1 className="text-2xl font-bold text-white">Transactions</h1>
           <p className="text-white/50 text-sm mt-0.5">{total} total transactions</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {/* Mode Switcher */}
-          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 shrink-0">
+          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setIsEditMode(false)}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                "flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
                 !isEditMode
                   ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
                   : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
@@ -252,7 +263,7 @@ export default function TransactionsClient({
               type="button"
               onClick={() => setIsEditMode(true)}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                "flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
                 isEditMode
                   ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
                   : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
@@ -261,10 +272,6 @@ export default function TransactionsClient({
               Edit Mode
             </button>
           </div>
-
-          <Button onClick={openCreate} className="bg-violet-500 hover:bg-violet-600 text-white rounded-full w-9 h-9 flex items-center justify-center p-0 shrink-0 shadow-lg shadow-violet-500/10">
-            <Plus size={18} />
-          </Button>
         </div>
       </div>
 
@@ -539,18 +546,21 @@ export default function TransactionsClient({
                     className="bg-white/5 border-white/10 text-white"
                     placeholder="e.g. Zomato, Amazon..."
                     autoComplete="off"
-                    {...register('merchantName')}
-                    onChange={(e) => handleMerchantInput(e.target.value)}
+                    {...merchantRegisterProps}
+                    onChange={(e) => {
+                      handleFormMerchantChange(e);
+                      handleMerchantInput(e.target.value);
+                    }}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   />
                   {showSuggestions && merchantSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-(--card-bg) border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#16162a] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
                       {merchantSuggestions.map((m) => (
                         <button
                           type="button"
                           key={m._id}
                           onMouseDown={() => selectMerchant(m)}
-                          className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center justify-between gap-2"
+                          className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center justify-between gap-2 border-b border-white/5"
                         >
                           <div>
                             <p className="text-sm text-white/90 font-medium">{m.canonicalName}</p>
@@ -562,11 +572,15 @@ export default function TransactionsClient({
                             {m.categoryId && typeof m.categoryId === 'object' && (
                               <span className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">{m.categoryId.name}</span>
                             )}
-                            <span className="text-xs text-white/30">×{m.usageCount ?? 0}</span>
                           </div>
                         </button>
                       ))}
                     </div>
+                  )}
+                  {watchedMerchantName && !watchedMerchantId && (
+                    <p className="text-xs text-rose-400 mt-1 animate-in fade-in duration-200">
+                      Please select from the dropdown. New merchants must be added under Categories first.
+                    </p>
                   )}
                 </div>
               </div>
@@ -673,6 +687,15 @@ export default function TransactionsClient({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating Action Button (FAB) */}
+      <button
+        onClick={openCreate}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-violet-600 hover:bg-violet-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.5)] border border-violet-500/20 transition-all hover:scale-110 active:scale-95 duration-200 cursor-pointer animate-in fade-in zoom-in-50 duration-300"
+        title="Add Transaction"
+      >
+        <Plus size={24} />
+      </button>
     </div>
   );
 }

@@ -410,7 +410,7 @@ export default function AnalyticsClient({
                 {monthlyData.categoryBreakdown.length === 0 ? (
                   <div className="py-12 text-center text-white/30 text-sm">No category expenses</div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-75 overflow-y-auto pr-1">
                     {monthlyData.categoryBreakdown.map((cat: any) => {
                       const pct = monthlyData.totalExpense > 0 ? (cat.amount / monthlyData.totalExpense) * 100 : 0;
                       return (
@@ -441,7 +441,7 @@ export default function AnalyticsClient({
                 {monthlyData.merchantBreakdown.length === 0 ? (
                   <div className="py-12 text-center text-white/30 text-sm">No merchant expenses</div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-75 overflow-y-auto pr-1">
                     {monthlyData.merchantBreakdown.map((m: any, idx: number) => {
                       const pct = monthlyData.totalExpense > 0 ? (m.amount / monthlyData.totalExpense) * 100 : 0;
                       return (

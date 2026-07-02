@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CategoryData = {
@@ -44,6 +43,7 @@ type CategoryGroupProps = {
   handleDeleteCat: (id: string) => void;
   openEditMerchant: (m: MerchantData) => void;
   handleDeleteMerchant: (id: string) => void;
+  isEditMode: boolean;
 };
 
 function CategoryGroup({
@@ -56,6 +56,7 @@ function CategoryGroup({
   handleDeleteCat,
   openEditMerchant,
   handleDeleteMerchant,
+  isEditMode,
 }: CategoryGroupProps) {
   return (
     <div className="space-y-2">
@@ -87,27 +88,29 @@ function CategoryGroup({
                   ? <ChevronDown size={14} className="text-white/30" />
                   : <ChevronRight size={14} className="text-white/30" />}
               </button>
-              <div className="flex gap-1 transition-opacity">
-                <button
-                  onClick={() => openCreateMerchant(cat._id)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-emerald-400 transition-colors"
-                  title="Add merchant"
-                >
-                  <Plus size={13} />
-                </button>
-                <button onClick={() => openEditCat(cat)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
-                  <Pencil size={13} />
-                </button>
-                <button onClick={() => handleDeleteCat(cat._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
-                  <Trash2 size={13} />
-                </button>
-              </div>
+              {isEditMode && (
+                <div className="flex gap-1 transition-opacity animate-in fade-in duration-200">
+                  <button
+                    onClick={() => openCreateMerchant(cat._id)}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-emerald-400 transition-colors"
+                    title="Add merchant"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  <button onClick={() => openEditCat(cat)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-violet-400 transition-colors">
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => handleDeleteCat(cat._id)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-rose-400 transition-colors">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {isExpanded && (
               <div className="border-t border-white/10 px-4 pb-3">
                 {catMerchants.length === 0 ? (
-                  <p className="text-white/30 text-xs py-3">No merchants. Click + to add.</p>
+                  <p className="text-white/30 text-xs py-3">No merchants.{isEditMode ? ' Click + to add.' : ''}</p>
                 ) : (
                   <div className="space-y-1 pt-2">
                     {catMerchants.map((m) => (
@@ -119,15 +122,16 @@ function CategoryGroup({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-white/30">×{m.usageCount ?? 0}</span>
-                          <div className="flex gap-1 transition-opacity">
-                            <button onClick={() => openEditMerchant(m)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-violet-400">
-                              <Pencil size={11} />
-                            </button>
-                            <button onClick={() => handleDeleteMerchant(m._id)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-rose-400">
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
+                          {isEditMode && (
+                            <div className="flex gap-1 transition-opacity animate-in fade-in duration-200">
+                              <button onClick={() => openEditMerchant(m)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-violet-400">
+                                <Pencil size={11} />
+                              </button>
+                              <button onClick={() => handleDeleteMerchant(m._id)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-rose-400">
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -165,6 +169,7 @@ export default function CategoriesClient({
   const [selectedCatColor, setSelectedCatColor] = useState(DEFAULT_CAT_COLOR);
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Category form
   const {
@@ -296,6 +301,7 @@ export default function CategoriesClient({
     handleDeleteCat,
     openEditMerchant,
     handleDeleteMerchant,
+    isEditMode,
   };
 
   return (
@@ -305,13 +311,45 @@ export default function CategoriesClient({
           <h1 className="text-2xl font-bold text-white">Categories</h1>
           <p className="text-white/50 text-sm mt-0.5">Manage categories and merchant aliases</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => openCreateMerchant()} variant="outline" className="bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10 gap-2">
-            <Plus size={14} /> Merchant
-          </Button>
-          <Button onClick={openCreateCat} className="bg-violet-500 hover:bg-violet-600 text-white gap-2">
-            <Plus size={16} /> Category
-          </Button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          {/* Mode Switcher */}
+          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsEditMode(false)}
+              className={cn(
+                "flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                !isEditMode
+                  ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                  : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+              )}
+            >
+              View Mode
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditMode(true)}
+              className={cn(
+                "flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                isEditMode
+                  ? "bg-violet-500/20 border-violet-500/30 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                  : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+              )}
+            >
+              Edit Mode
+            </button>
+          </div>
+
+          {isEditMode && (
+            <div className="flex gap-2 w-full sm:w-auto animate-in fade-in duration-200">
+              <Button onClick={() => openCreateMerchant()} variant="outline" className="flex-1 sm:flex-initial bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10 gap-2 text-xs font-semibold px-3 py-1.5 h-auto rounded-xl">
+                <Plus size={13} /> Merchant
+              </Button>
+              <Button onClick={openCreateCat} className="bg-violet-500 hover:bg-violet-600 text-white gap-2 text-xs font-semibold px-3 py-1.5 h-auto rounded-xl shadow-lg shadow-violet-500/10 flex-1 sm:flex-initial">
+                <Plus size={13} /> Category
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
