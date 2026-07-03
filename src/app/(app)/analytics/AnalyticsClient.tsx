@@ -43,7 +43,7 @@ export default function AnalyticsClient({
   const [data, setData] = useState<AnalyticsData>(initialData);
   const [loading, setLoading] = useState(false);
 
-  const [activeView, setActiveView] = useState<'yearly' | 'monthly'>('yearly');
+  const [activeView, setActiveView] = useState<'yearly' | 'monthly'>('monthly');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [monthlyYear, setMonthlyYear] = useState<number>(defaultYear);
   const [monthlyData, setMonthlyData] = useState<any>(null);
@@ -159,23 +159,23 @@ export default function AnalyticsClient({
             <div className="flex items-center gap-2 shrink-0">
               {/* Year Selector */}
               <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
-                <button 
+                <button
                   onClick={() => {
                     const y = monthlyYear - 1;
                     setMonthlyYear(y);
                     fetchMonthlyBreakdown(y, selectedMonth);
-                  }} 
+                  }}
                   className="text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <span className="text-white font-medium text-sm min-w-15 text-center">{monthlyYear}</span>
-                <button 
+                <button
                   onClick={() => {
                     const y = monthlyYear + 1;
                     setMonthlyYear(y);
                     fetchMonthlyBreakdown(y, selectedMonth);
-                  }} 
+                  }}
                   className="text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
                 >
                   <ChevronRight size={18} />
@@ -370,7 +370,7 @@ export default function AnalyticsClient({
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               {/* Pie Chart of category expenses */}
               <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-                <h3 className="text-white font-semibold mb-4">Category Expenses (Pie)</h3>
+                <h3 className="text-white font-semibold mb-4">Category Expenses</h3>
                 {monthlyData.categoryBreakdown.length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses this month</div>
                 ) : (

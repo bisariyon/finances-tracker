@@ -103,6 +103,7 @@ export async function createTransaction(data: {
       merchantId: data.merchantId
         ? new mongoose.Types.ObjectId(data.merchantId)
         : undefined,
+      merchantName: data.merchantName?.trim() || undefined,
     };
 
     const [transaction] = await Transaction.create([txData], { session });
@@ -238,6 +239,7 @@ export async function updateTransaction(
         merchantId: data.merchantId
           ? new mongoose.Types.ObjectId(data.merchantId)
           : undefined,
+        merchantName: data.merchantName?.trim() || undefined,
       },
       { new: true, session },
     );
