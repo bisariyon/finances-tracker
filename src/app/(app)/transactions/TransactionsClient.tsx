@@ -190,10 +190,21 @@ export default function TransactionsClient({
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   function onSubmit(values: TransactionInput) {
-    const isMerchantRequired = (txType as string) !== 'transfer' && (txType as string) !== 'income';
-    if (isMerchantRequired && !values.merchantId) {
-      toast.error('Please select an existing merchant from the suggestions list. New merchants must be added on the Categories page first.');
-      return;
+    const isTransfer = (txType as string) === 'transfer';
+    if (!isTransfer) {
+      const hasMerchantName = !!values.merchantName?.trim();
+      const hasMerchantId = !!values.merchantId;
+      const hasCategory = !!values.categoryId && values.categoryId !== '';
+
+      if (hasMerchantName && !hasMerchantId) {
+        toast.error('Please select an existing merchant from the suggestions list. New merchants must be added on the Categories page first.');
+        return;
+      }
+
+      if (!hasMerchantId && !hasCategory) {
+        toast.error('A category is required when no merchant is selected.');
+        return;
+      }
     }
 
     startTransition(async () => {
