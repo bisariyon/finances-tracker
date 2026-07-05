@@ -632,7 +632,10 @@ export default function TransactionsClient({
 
       {/* View Details Dialog */}
       <Dialog open={!!selectedTxDetails} onOpenChange={() => setSelectedTxDetails(null)}>
-        <DialogContent className="sm:max-w-md bg-[#16162a] border-white/10 text-white rounded-2xl">
+        <DialogContent className="bg-[#16162a] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:right-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
+          {/* Mobile Drawer drag handle */}
+          <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+
           <DialogHeader>
             <DialogTitle className="text-white">Transaction Details</DialogTitle>
           </DialogHeader>

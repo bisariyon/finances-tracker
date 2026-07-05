@@ -538,7 +538,7 @@ export async function getMonthlyBreakdown(year: number, month: number) {
 
   const categoryMap: Record<
     string,
-    { name: string; color: string; icon: string; amount: number }
+    { _id?: string; name: string; color: string; icon: string; amount: number }
   > = {};
   
   const merchantMap: Record<string, { name: string; amount: number }> = {};
@@ -557,6 +557,7 @@ export async function getMonthlyBreakdown(year: number, month: number) {
         const catId = cat._id.toString();
         if (!categoryMap[catId]) {
           categoryMap[catId] = {
+            _id: catId,
             name: cat.name,
             color: cat.color,
             icon: cat.icon,
@@ -582,6 +583,7 @@ export async function getMonthlyBreakdown(year: number, month: number) {
     savings: totalIncome - totalExpense,
     categoryBreakdown: Object.values(categoryMap).sort((a, b) => b.amount - a.amount),
     merchantBreakdown: Object.values(merchantMap).sort((a, b) => b.amount - a.amount),
+    transactions: txs,
   });
 }
 

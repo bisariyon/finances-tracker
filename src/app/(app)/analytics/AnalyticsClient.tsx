@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getAnalyticsData, getMonthlyBreakdown } from '@/actions/transactions';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type AnalyticsData = Awaited<ReturnType<typeof getAnalyticsData>>;
 
@@ -31,8 +32,6 @@ const CUSTOM_TOOLTIP = ({ active, payload, label }: any) => {
 export default function AnalyticsClient({
   initialData,
   defaultYear,
-  accounts,
-  categories,
 }: {
   initialData: AnalyticsData;
   defaultYear: number;
@@ -48,6 +47,9 @@ export default function AnalyticsClient({
   const [monthlyYear, setMonthlyYear] = useState<number>(defaultYear);
   const [monthlyData, setMonthlyData] = useState<any>(null);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [selectedCategoryTxs, setSelectedCategoryTxs] = useState<{ id: string; name: string; color: string; txs: any[] } | null>(null);
+  const [activeCategorySlice, setActiveCategorySlice] = useState<{ name: string; amount: number; color: string } | null>(null);
+  const [txSortOption, setTxSortOption] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>('date-desc');
 
   const MONTHS_LIST = [
     { value: 1, label: 'January' },
@@ -64,23 +66,32 @@ export default function AnalyticsClient({
     { value: 12, label: 'December' },
   ];
 
-  async function fetchMonthlyBreakdown(mYear: number, monthNum: number) {
-    setMonthlyLoading(true);
-    try {
-      const breakdown = await getMonthlyBreakdown(mYear, monthNum);
-      setMonthlyData(breakdown);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setMonthlyLoading(false);
+  useEffect(() => {
+    let active = true;
+    async function loadMonthlyData() {
+      setMonthlyLoading(true);
+      try {
+        const breakdown = await getMonthlyBreakdown(monthlyYear, selectedMonth);
+        if (active) {
+          setMonthlyData(breakdown);
+          setActiveCategorySlice(null);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setMonthlyLoading(false);
+        }
+      }
     }
-  }
+    loadMonthlyData();
+    return () => {
+      active = false;
+    };
+  }, [monthlyYear, selectedMonth]);
 
   const handleTabChange = (view: 'yearly' | 'monthly') => {
     setActiveView(view);
-    if (view === 'monthly' && !monthlyData) {
-      fetchMonthlyBreakdown(monthlyYear, selectedMonth);
-    }
   };
 
   async function navigateYear(dir: 'prev' | 'next') {
@@ -95,7 +106,7 @@ export default function AnalyticsClient({
     }
   }
 
-  const pieData = data.categoryBreakdown.slice(0, 8).map((c) => ({
+  const pieData = data.categoryBreakdown.map((c) => ({
     name: c.name,
     value: c.amount,
     color: c.color,
@@ -161,9 +172,7 @@ export default function AnalyticsClient({
               <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
                 <button
                   onClick={() => {
-                    const y = monthlyYear - 1;
-                    setMonthlyYear(y);
-                    fetchMonthlyBreakdown(y, selectedMonth);
+                    setMonthlyYear(prev => prev - 1);
                   }}
                   className="text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
                 >
@@ -172,9 +181,7 @@ export default function AnalyticsClient({
                 <span className="text-white font-medium text-sm min-w-15 text-center">{monthlyYear}</span>
                 <button
                   onClick={() => {
-                    const y = monthlyYear + 1;
-                    setMonthlyYear(y);
-                    fetchMonthlyBreakdown(y, selectedMonth);
+                    setMonthlyYear(prev => prev + 1);
                   }}
                   className="text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
                 >
@@ -186,9 +193,7 @@ export default function AnalyticsClient({
               <select
                 value={selectedMonth}
                 onChange={(e) => {
-                  const m = parseInt(e.target.value);
-                  setSelectedMonth(m);
-                  fetchMonthlyBreakdown(monthlyYear, m);
+                  setSelectedMonth(parseInt(e.target.value));
                 }}
                 className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-violet-500/50"
               >
@@ -292,7 +297,7 @@ export default function AnalyticsClient({
                 <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses for {year}</div>
               ) : (
                 <div className="space-y-3">
-                  {data.categoryBreakdown.slice(0, 8).map((cat) => {
+                  {data.categoryBreakdown.map((cat) => {
                     const pct = data.totalExpense > 0 ? (cat.amount / data.totalExpense) * 100 : 0;
                     return (
                       <div key={cat.name}>
@@ -374,33 +379,88 @@ export default function AnalyticsClient({
                 {monthlyData.categoryBreakdown.length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses this month</div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={monthlyData.categoryBreakdown.slice(0, 8).map((c: any) => ({
-                          name: c.name,
-                          value: c.amount,
-                          color: c.color,
-                        }))}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {monthlyData.categoryBreakdown.slice(0, 8).map((c: any, i: number) => (
-                          <Cell key={i} fill={c.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: any) => formatCurrency(value)}
-                        contentStyle={{ background: 'var(--card-bg)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                        labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
-                        itemStyle={{ color: 'white' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="relative">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={monthlyData.categoryBreakdown.map((c: any) => ({
+                            name: c.name,
+                            value: c.amount,
+                            color: c.color,
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={80}
+                          paddingAngle={3}
+                          dataKey="value"
+                          onClick={(eventData) => {
+                            if (eventData && eventData.payload) {
+                              const payload = eventData.payload;
+                              if (activeCategorySlice?.name === payload.name) {
+                                setActiveCategorySlice(null);
+                              } else {
+                                setActiveCategorySlice({
+                                  name: payload.name,
+                                  amount: payload.value,
+                                  color: payload.color || '#fff'
+                                });
+                              }
+                            }
+                          }}
+                          onMouseEnter={(eventData) => {
+                            if (eventData && eventData.payload) {
+                              const payload = eventData.payload;
+                              setActiveCategorySlice({
+                                name: payload.name,
+                                amount: payload.value,
+                                color: payload.color || '#fff'
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            setActiveCategorySlice(null);
+                          }}
+                        >
+                          {monthlyData.categoryBreakdown.map((c: any, i: number) => {
+                            const isSelected = activeCategorySlice?.name === c.name;
+                            const hasSelection = activeCategorySlice !== null;
+                            return (
+                              <Cell
+                                key={i}
+                                fill={c.color}
+                                opacity={hasSelection && !isSelected ? 0.3 : 1}
+                                style={{ outline: 'none', cursor: 'pointer' }}
+                              />
+                            );
+                          })}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    {/* Centered text overlay inside the donut hole */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex flex-col items-center justify-center text-center w-28 h-28 bg-[#0a0a18]/60 rounded-full border border-white/5 shadow-inner backdrop-blur-xs select-none">
+                      {activeCategorySlice ? (
+                        <div className="p-2 animate-in fade-in zoom-in duration-200">
+                          <span className="text-[9px] uppercase font-bold tracking-wider block truncate max-w-24 leading-none" style={{ color: activeCategorySlice.color }}>
+                            {activeCategorySlice.name}
+                          </span>
+                          <span className="text-xs font-extrabold text-white mt-1.5 block">
+                            {formatCurrency(activeCategorySlice.amount)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="p-2 animate-in fade-in duration-200">
+                          <span className="text-[9px] text-white/40 uppercase font-bold tracking-wider block leading-none">
+                            Total Cost
+                          </span>
+                          <span className="text-xs font-extrabold text-white mt-1.5 block">
+                            {formatCurrency(monthlyData.totalExpense)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -410,19 +470,36 @@ export default function AnalyticsClient({
                 {monthlyData.categoryBreakdown.length === 0 ? (
                   <div className="py-12 text-center text-white/30 text-sm">No category expenses</div>
                 ) : (
-                  <div className="space-y-3 max-h-75 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-75 overflow-y-auto overflow-x-hidden pr-1">
                     {monthlyData.categoryBreakdown.map((cat: any) => {
                       const pct = monthlyData.totalExpense > 0 ? (cat.amount / monthlyData.totalExpense) * 100 : 0;
                       return (
-                        <div key={cat.name}>
-                          <div className="flex items-center justify-between mb-1">
+                        <div
+                          key={cat.name}
+                          onClick={() => {
+                            const catId = cat._id;
+                            const filteredTxs = (monthlyData.transactions || []).filter((tx: any) => {
+                              const tCatId = tx.categoryId?._id?.toString() || tx.categoryId?.toString();
+                              return tCatId === catId;
+                            });
+                            setSelectedCategoryTxs({
+                              id: catId,
+                              name: cat.name,
+                              color: cat.color,
+                              txs: filteredTxs
+                            });
+                          }}
+                          className="group cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-xl transition-all"
+                          title="Click to view transactions"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full" style={{ background: cat.color }} />
-                              <span className="text-white/70 text-xs">{cat.name}</span>
+                              <span className="text-white/70 text-xs font-medium group-hover:text-white transition-colors">{cat.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-white/40 text-[10px]">{pct.toFixed(0)}%</span>
-                              <span className="text-white/90 text-xs font-semibold">{formatCurrency(cat.amount)}</span>
+                              <span className="text-white/90 text-xs font-semibold group-hover:text-violet-300 transition-colors">{formatCurrency(cat.amount)}</span>
                             </div>
                           </div>
                           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -441,7 +518,7 @@ export default function AnalyticsClient({
                 {monthlyData.merchantBreakdown.length === 0 ? (
                   <div className="py-12 text-center text-white/30 text-sm">No merchant expenses</div>
                 ) : (
-                  <div className="space-y-3 max-h-75 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-75 overflow-y-auto overflow-x-hidden pr-1">
                     {monthlyData.merchantBreakdown.map((m: any, idx: number) => {
                       const pct = monthlyData.totalExpense > 0 ? (m.amount / monthlyData.totalExpense) * 100 : 0;
                       return (
@@ -460,6 +537,69 @@ export default function AnalyticsClient({
             </div>
           )}
         </div>
+      )}
+
+      {/* Category Transactions Drilldown Dialog */}
+      {selectedCategoryTxs && (
+        <Dialog open={!!selectedCategoryTxs} onOpenChange={() => { setSelectedCategoryTxs(null); setTxSortOption('date-desc'); }}>
+          <DialogContent className="bg-[#121225] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:right-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
+            {/* Mobile Drawer drag handle */}
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold text-white">
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: selectedCategoryTxs.color }} />
+                {selectedCategoryTxs.name} Transactions
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* Sort Control Row */}
+            <div className="flex items-center justify-between mt-4 pb-2 border-b border-white/5">
+              <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">
+                {selectedCategoryTxs.txs.length} transactions
+              </span>
+              <select
+                value={txSortOption}
+                onChange={(e) => setTxSortOption(e.target.value as any)}
+                className="bg-white/5 border border-white/10 rounded-lg text-white/70 text-[10px] px-2 py-1 focus:outline-none focus:border-violet-500/50 cursor-pointer font-medium"
+              >
+                <option value="date-desc" className="bg-[#0f0f1e] text-white">Date: Latest first</option>
+                <option value="date-asc" className="bg-[#0f0f1e] text-white">Date: Oldest first</option>
+                <option value="amount-desc" className="bg-[#0f0f1e] text-white">Price: High to Low</option>
+                <option value="amount-asc" className="bg-[#0f0f1e] text-white">Price: Low to High</option>
+              </select>
+            </div>
+
+            <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {[...selectedCategoryTxs.txs]
+                .sort((a, b) => {
+                  if (txSortOption === 'date-desc') return new Date(b.date).getTime() - new Date(a.date).getTime();
+                  if (txSortOption === 'date-asc') return new Date(a.date).getTime() - new Date(b.date).getTime();
+                  if (txSortOption === 'amount-desc') return b.amount - a.amount;
+                  if (txSortOption === 'amount-asc') return a.amount - b.amount;
+                  return 0;
+                })
+                .map((tx: any) => (
+                  <div key={tx._id} className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="text-xs font-semibold text-white/90 truncate">
+                        {tx.merchantName || tx.notes || 'Expense'}
+                      </p>
+                      <p className="text-[10px] text-white/40 mt-0.5">
+                        {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-rose-400 shrink-0">
+                      -{formatCurrency(tx.amount)}
+                    </span>
+                  </div>
+                ))}
+              {selectedCategoryTxs.txs.length === 0 && (
+                <p className="text-center text-white/35 py-8 text-xs">No transactions found in this category.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
