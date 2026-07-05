@@ -38,8 +38,17 @@ input:-webkit-autofill:focus {
   transition: background-color 5000s ease-in-out 0s;
 }
 
-/* native select dark override */
 select option {
   background: #141427;
   color: #f0f0ff;
+}
+
+/* remove recharts focus outlines */
+.recharts-wrapper, 
+.recharts-wrapper *, 
+svg, 
+svg * {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
 }

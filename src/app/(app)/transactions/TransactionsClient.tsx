@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionSchema, type TransactionInput } from '@/lib/validations';
@@ -110,6 +110,35 @@ export default function TransactionsClient({
   const watchedAccountId = useWatch({ control, name: 'accountId' });
   const watchedMerchantName = useWatch({ control, name: 'merchantName' });
   const watchedMerchantId = useWatch({ control, name: 'merchantId' });
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ addDialogOpen: true }, '');
+    const handlePopState = () => {
+      setOpen(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.history.state?.addDialogOpen) {
+        window.history.back();
+      }
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!selectedTxDetails) return;
+    window.history.pushState({ detailsDialogOpen: true }, '');
+    const handlePopState = () => {
+      setSelectedTxDetails(null);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.history.state?.detailsDialogOpen) {
+        window.history.back();
+      }
+    };
+  }, [selectedTxDetails]);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
   async function load(p: number, s: string, fType: string, fAcc: string, fCat: string) {
@@ -632,7 +661,7 @@ export default function TransactionsClient({
 
       {/* View Details Dialog */}
       <Dialog open={!!selectedTxDetails} onOpenChange={() => setSelectedTxDetails(null)}>
-        <DialogContent className="bg-[#16162a] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:right-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
+        <DialogContent className="bg-[#16162a] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0.5 max-sm:right-0.5 max-sm:w-[calc(100%-0.25rem)] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
           {/* Mobile Drawer drag handle */}
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
 

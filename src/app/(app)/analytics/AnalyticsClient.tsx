@@ -90,6 +90,25 @@ export default function AnalyticsClient({
     };
   }, [monthlyYear, selectedMonth]);
 
+  useEffect(() => {
+    if (!selectedCategoryTxs) return;
+
+    window.history.pushState({ dialogOpen: true }, '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      setSelectedCategoryTxs(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.history.state?.dialogOpen) {
+        window.history.back();
+      }
+    };
+  }, [selectedCategoryTxs]);
+
   const handleTabChange = (view: 'yearly' | 'monthly') => {
     setActiveView(view);
   };
@@ -379,9 +398,13 @@ export default function AnalyticsClient({
                 {monthlyData.categoryBreakdown.length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses this month</div>
                 ) : (
-                  <div className="relative">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
+                  <div className="relative outline-none">
+                    <ResponsiveContainer width="100%" height={220} className="outline-none">
+                      <PieChart
+                        onClick={() => setActiveCategorySlice(null)}
+                        className="outline-none"
+                        style={{ outline: 'none' }}
+                      >
                         <Pie
                           data={monthlyData.categoryBreakdown.map((c: any) => ({
                             name: c.name,
@@ -394,7 +417,8 @@ export default function AnalyticsClient({
                           outerRadius={80}
                           paddingAngle={3}
                           dataKey="value"
-                          onClick={(eventData) => {
+                          onClick={(eventData, index, e) => {
+                            if (e && e.stopPropagation) e.stopPropagation();
                             if (eventData && eventData.payload) {
                               const payload = eventData.payload;
                               if (activeCategorySlice?.name === payload.name) {
@@ -542,7 +566,7 @@ export default function AnalyticsClient({
       {/* Category Transactions Drilldown Dialog */}
       {selectedCategoryTxs && (
         <Dialog open={!!selectedCategoryTxs} onOpenChange={() => { setSelectedCategoryTxs(null); setTxSortOption('date-desc'); }}>
-          <DialogContent className="bg-[#121225] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:right-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
+          <DialogContent className="bg-[#121225] border-white/10 text-white rounded-2xl max-w-md w-full max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0.5 max-sm:right-0.5 max-sm:w-[calc(100%-0.25rem)] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-0 max-sm:p-5 max-sm:pb-8">
             {/* Mobile Drawer drag handle */}
             <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
 
