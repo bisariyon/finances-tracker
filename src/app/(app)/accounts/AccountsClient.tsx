@@ -335,19 +335,19 @@ export default function AccountsClient({ initialAccounts }: { initialAccounts: A
               {errors.type && <p className="text-xs text-rose-400 mt-1">{errors.type.message}</p>}
             </div>
 
-            {/* Opening Balance (create only) */}
-            {!editing && (
-              <div>
-                <label className="text-sm text-white/70 mb-1.5 block">Opening Balance (₹)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="bg-white/5 border-white/10 text-white"
-                  {...register('balance', { valueAsNumber: true })}
-                />
-                {errors.balance && <p className="text-xs text-rose-400 mt-1">{errors.balance.message}</p>}
-              </div>
-            )}
+            {/* Balance */}
+            <div>
+              <label className="text-sm text-white/70 mb-1.5 block">
+                {editing ? 'Current Balance (₹)' : 'Opening Balance (₹)'}
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                className="bg-white/5 border-white/10 text-white"
+                {...register('balance', { valueAsNumber: true })}
+              />
+              {errors.balance && <p className="text-xs text-rose-400 mt-1">{errors.balance.message}</p>}
+            </div>
 
             {/* Color — driven by local state to avoid react-hook-form watch() */}
             <div>

@@ -5,8 +5,10 @@ import connectToDatabase from "@/lib/mongoose";
 import { Account } from "@/models/Account";
 import { Category } from "@/models/Category";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
-import { serializeDocument } from "@/lib/utils";
+import { serializeDocument, formatCurrency } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import { Transaction } from "@/models/Transaction";
+import mongoose from "mongoose";
 
 async function seedDefaultCategories(userId: string) {
   // 1. Clean up any existing duplicates caused by previous race conditions
@@ -63,17 +65,63 @@ export async function createAccount(data: {
 
 export async function updateAccount(
   id: string,
-  data: { name: string; type: string; color: string },
+  data: { name: string; type: string; color: string; balance?: number },
 ) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   await connectToDatabase();
-  const account = await Account.findOneAndUpdate({ _id: id, userId }, data, {
-    new: true,
-  }).lean();
-  revalidatePath("/");
-  revalidatePath("/accounts");
-  return serializeDocument(account);
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const existing = await Account.findOne({ _id: id, userId }).session(session);
+    if (!existing) throw new Error("Account not found");
+
+    const oldBalance = existing.balance;
+    const newBalance = data.balance !== undefined ? data.balance : oldBalance;
+
+    const updated = await Account.findOneAndUpdate(
+      { _id: id, userId },
+      { ...data, balance: newBalance },
+      { new: true, session }
+    ).lean();
+
+    if (newBalance !== oldBalance) {
+      const diff = newBalance - oldBalance;
+      const formattedOld = formatCurrency(oldBalance);
+      const formattedNew = formatCurrency(newBalance);
+      const description = `Account updated from ${formattedOld} to ${formattedNew}`;
+
+      await Transaction.create(
+        [
+          {
+            userId,
+            amount: Math.abs(diff),
+            type: diff > 0 ? "income" : "expense",
+            date: new Date(),
+            accountId: id,
+            merchantName: "Balance Adjustment",
+            notes: description,
+          },
+        ],
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    revalidatePath("/");
+    revalidatePath("/accounts");
+    revalidatePath("/transactions");
+
+    return serializeDocument(updated);
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 }
 
 export async function setDefaultAccount(id: string) {
