@@ -413,7 +413,7 @@ export default function TransactionsClient({
                             })()
                             : tx.type === 'income'
                               ? (tx.notes || 'Income')
-                              : (tx.merchantName || tx.notes || '—')}
+                              : (tx.merchantName || tx.notes || tx.categoryId?.name || '—')}
                         </p>
                         <div className="flex flex-wrap items-center gap-1 mt-0.5">
                           <span className="sm:hidden">
@@ -734,10 +734,10 @@ export default function TransactionsClient({
       {/* Floating Action Button (FAB) */}
       <button
         onClick={openCreate}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-violet-600 hover:bg-violet-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.5)] border border-violet-500/20 transition-all hover:scale-110 active:scale-95 cursor-pointer animate-in fade-in zoom-in-50 duration-300"
+        className="fixed bottom-6 right-6 z-50 w-18 h-18 bg-violet-600 hover:bg-violet-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.5)] border border-violet-500/20 transition-all hover:scale-110 active:scale-95 cursor-pointer animate-in fade-in zoom-in-50 duration-300"
         title="Add Transaction"
       >
-        <Plus size={24} />
+        <Plus size={40} />
       </button>
     </div>
   );
