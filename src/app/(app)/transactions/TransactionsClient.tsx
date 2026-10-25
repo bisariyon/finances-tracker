@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useTransition, useRef, useEffect } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionSchema, type TransactionInput } from '@/lib/validations';
 import {
   createTransaction, updateTransaction, deleteTransaction, getTransactions,
 } from '@/actions/transactions';
-import { searchMerchants } from '@/actions/merchants';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { TRANSACTION_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
@@ -65,6 +64,7 @@ export default function TransactionsClient({
   initialTotal,
   accounts,
   categories,
+  merchants,
   defaultAccountId,
 }: Props) {
   const [transactions, setTransactions] = useState<TransactionRow[]>(initialTransactions);
@@ -80,7 +80,6 @@ export default function TransactionsClient({
   const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantRef[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [txType, setTxType] = useState<TransactionInput['type']>('expense');
-  const merchantTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedTxDetails, setSelectedTxDetails] = useState<TransactionRow | null>(null);
 
@@ -196,16 +195,25 @@ export default function TransactionsClient({
   }
 
   // ── Merchant autocomplete ──────────────────────────────────────────────────
-  async function handleMerchantInput(val: string) {
+  function handleMerchantInput(val: string) {
     setValue('merchantName', val);
     setValue('merchantId', '');
-    clearTimeout(merchantTimeout.current);
-    if (val.length < 1) { setMerchantSuggestions([]); return; }
-    merchantTimeout.current = setTimeout(async () => {
-      const results = await searchMerchants(val);
-      setMerchantSuggestions(results as MerchantRef[]);
-      setShowSuggestions(true);
-    }, 200);
+    const query = val.trim().toLowerCase();
+    if (!query) {
+      setMerchantSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setMerchantSuggestions(
+      merchants
+        .filter((merchant) =>
+          merchant.canonicalName.toLowerCase().includes(query) ||
+          merchant.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+        )
+        .sort((a, b) => (b.usageCount ?? 0) - (a.usageCount ?? 0))
+        .slice(0, 8),
+    );
+    setShowSuggestions(true);
   }
 
   function selectMerchant(m: MerchantRef) {
