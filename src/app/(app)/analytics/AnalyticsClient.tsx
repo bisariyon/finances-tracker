@@ -231,7 +231,7 @@ export default function AnalyticsClient({
             </button>
           </div>
 
-          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 shrink-0" aria-label="Transaction types">
+          <div className="grid w-full grid-cols-3 p-1 rounded-xl bg-white/5 border border-white/10 gap-1 sm:inline-flex sm:w-auto sm:flex-nowrap sm:shrink-0" aria-label="Transaction types">
             {(['all', 'expense', 'income', 'transfer', 'refund'] as const).map((filter) => (
               <button
                 key={filter}
@@ -239,7 +239,7 @@ export default function AnalyticsClient({
                 onClick={() => setTransactionFilter(filter)}
                 aria-pressed={transactionFilter === filter}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                  "w-full min-w-0 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold text-center whitespace-nowrap transition-all duration-200 cursor-pointer border sm:w-auto sm:px-3",
                   transactionFilter === filter
                     ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
                     : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"

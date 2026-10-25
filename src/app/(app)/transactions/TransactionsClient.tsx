@@ -278,7 +278,7 @@ export default function TransactionsClient({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Transactions</h1>
@@ -734,7 +734,7 @@ export default function TransactionsClient({
       {/* Floating Action Button (FAB) */}
       <button
         onClick={openCreate}
-        className="fixed bottom-20 right-6 z-50 w-18 h-18 bg-violet-600 hover:bg-violet-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.5)] border border-violet-500/20 transition-all hover:scale-110 active:scale-95 cursor-pointer animate-in fade-in zoom-in-50 duration-300"
+        className="fixed bottom-25 right-6 z-50 w-18 h-18 bg-violet-600 hover:bg-violet-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.5)] border border-violet-500/20 transition-all hover:scale-110 active:scale-95 cursor-pointer animate-in fade-in zoom-in-50 duration-300"
         title="Add Transaction"
       >
         <Plus size={40} />

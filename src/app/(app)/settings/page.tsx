@@ -14,9 +14,9 @@ export default function SettingsPage() {
         <div className="p-5">
           <h3 className="text-white font-semibold mb-1">Export Data</h3>
           <p className="text-white/50 text-sm mb-3">Download all your transactions as a CSV file.</p>
-          <button className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm rounded-xl font-medium transition-colors">
+          <a href="/api/export" className="inline-flex px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm rounded-xl font-medium transition-colors">
             Export CSV
-          </button>
+          </a>
         </div>
         <div className="p-5">
           <h3 className="font-semibold mb-1 text-rose-400">Danger Zone</h3>
