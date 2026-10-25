@@ -10,7 +10,7 @@ import {
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { TRANSACTION_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
-import { Plus, Search, Pencil, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,8 @@ export default function TransactionsClient({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionRow | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingDirection, setLoadingDirection] = useState<'previous' | 'next' | null>(null);
   const [merchantSuggestions, setMerchantSuggestions] = useState<MerchantRef[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [txType, setTxType] = useState<TransactionInput['type']>('expense');
@@ -141,17 +143,37 @@ export default function TransactionsClient({
 
   // ── Loaders ────────────────────────────────────────────────────────────────
   async function load(p: number, s: string, fType: string, fAcc: string, fCat: string) {
-    const res = await getTransactions({
-      page: p,
-      limit,
-      search: s || undefined,
-      type: fType || undefined,
-      accountId: fAcc || undefined,
-      categoryId: fCat || undefined,
-    });
-    setTransactions(res.transactions as TransactionRow[]);
-    setTotal(res.total);
-    setPage(p);
+    setIsLoading(true);
+    try {
+      const res = await getTransactions({
+        page: p,
+        limit,
+        search: s || undefined,
+        type: fType || undefined,
+        accountId: fAcc || undefined,
+        categoryId: fCat || undefined,
+      });
+      setTransactions(res.transactions as TransactionRow[]);
+      setTotal(res.total);
+      setPage(p);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function changePage(direction: 'previous' | 'next') {
+    setLoadingDirection(direction);
+    try {
+      await load(
+        page + (direction === 'next' ? 1 : -1),
+        search,
+        filterType,
+        filterAccount,
+        filterCategory,
+      );
+    } finally {
+      setLoadingDirection(null);
+    }
   }
 
   // ── Dialog helpers ─────────────────────────────────────────────────────────
@@ -384,7 +406,7 @@ export default function TransactionsClient({
               </tr>
             </thead>
             <tbody>
-              {isPending ? (
+              {isPending || isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={7} className="px-4 py-3"><Skeleton className="h-8 w-full" /></td>
@@ -487,21 +509,27 @@ export default function TransactionsClient({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
-            <span className="text-xs text-white/40">Page {page} of {totalPages}</span>
+            <span className="text-xs text-white/40" aria-live="polite">
+              {isLoading ? 'Loading page...' : `Page ${page} of ${totalPages}`}
+            </span>
             <div className="flex gap-2">
               <button
-                disabled={page <= 1}
-                onClick={() => load(page - 1, search, filterType, filterAccount, filterCategory)}
-                className="p-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                type="button"
+                aria-label="Previous page"
+                disabled={page <= 1 || isLoading}
+                onClick={() => changePage('previous')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white/60 transition-colors hover:text-white hover:bg-white/5 active:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <ChevronLeft size={14} />
+                {loadingDirection === 'previous' ? <LoaderCircle size={16} className="animate-spin" /> : <ChevronLeft size={16} />}
               </button>
               <button
-                disabled={page >= totalPages}
-                onClick={() => load(page + 1, search, filterType, filterAccount, filterCategory)}
-                className="p-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                type="button"
+                aria-label="Next page"
+                disabled={page >= totalPages || isLoading}
+                onClick={() => changePage('next')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white/60 transition-colors hover:text-white hover:bg-white/5 active:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <ChevronRight size={14} />
+                {loadingDirection === 'next' ? <LoaderCircle size={16} className="animate-spin" /> : <ChevronRight size={16} />}
               </button>
             </div>
           </div>
