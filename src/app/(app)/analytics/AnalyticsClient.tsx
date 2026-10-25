@@ -43,6 +43,7 @@ export default function AnalyticsClient({
   const [loading, setLoading] = useState(false);
 
   const [activeView, setActiveView] = useState<'yearly' | 'monthly'>('monthly');
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'expense' | 'income' | 'transfer' | 'refund'>('expense');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [monthlyYear, setMonthlyYear] = useState<number>(defaultYear);
   const [monthlyData, setMonthlyData] = useState<any>(null);
@@ -95,7 +96,7 @@ export default function AnalyticsClient({
 
     window.history.pushState({ dialogOpen: true }, '');
 
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = () => {
       setSelectedCategoryTxs(null);
     };
 
@@ -125,7 +126,63 @@ export default function AnalyticsClient({
     }
   }
 
-  const pieData = data.categoryBreakdown.map((c) => ({
+  const categoryTransactionType = transactionFilter === 'all' ? 'expense' : transactionFilter;
+  const yearlyCategoryBreakdown = categoryTransactionType === 'income'
+    ? data.incomeCategoryBreakdown
+    : categoryTransactionType === 'refund'
+      ? data.refundCategoryBreakdown
+      : categoryTransactionType === 'expense'
+        ? data.categoryBreakdown
+        : [];
+  const yearlyMerchantBreakdown = categoryTransactionType === 'income'
+    ? []
+    : categoryTransactionType === 'refund'
+      ? data.refundMerchantBreakdown
+      : categoryTransactionType === 'expense'
+        ? data.merchantBreakdown
+        : [];
+  const monthlyCategoryBreakdown = monthlyData
+    ? categoryTransactionType === 'income'
+      ? monthlyData.incomeCategoryBreakdown
+      : categoryTransactionType === 'refund'
+        ? monthlyData.refundCategoryBreakdown
+        : categoryTransactionType === 'expense'
+          ? monthlyData.categoryBreakdown
+          : []
+    : [];
+  const monthlyMerchantBreakdown = monthlyData
+    ? categoryTransactionType === 'refund'
+      ? monthlyData.refundMerchantBreakdown
+      : categoryTransactionType === 'expense'
+        ? monthlyData.merchantBreakdown
+        : []
+    : [];
+  const categoryLabel = categoryTransactionType === 'income'
+    ? 'Income'
+    : categoryTransactionType === 'refund'
+      ? 'Refund'
+      : categoryTransactionType === 'transfer'
+        ? 'Self Transfer'
+        : 'Expense';
+  const yearlyCategoryTotal = categoryTransactionType === 'income'
+    ? data.totalIncome
+    : categoryTransactionType === 'refund'
+      ? data.totalRefund
+      : data.totalExpense;
+  const monthlyCategoryTotal = categoryTransactionType === 'income'
+    ? monthlyData?.totalIncome || 0
+    : categoryTransactionType === 'refund'
+      ? monthlyData?.totalRefund || 0
+      : monthlyData?.totalExpense || 0;
+  const trendLabel = transactionFilter === 'income'
+    ? 'Income'
+    : transactionFilter === 'refund'
+      ? 'Refund'
+      : transactionFilter === 'transfer'
+        ? 'Self Transfer'
+        : 'Savings';
+
+  const pieData = yearlyCategoryBreakdown.map((c) => ({
     name: c.name,
     value: c.amount,
     color: c.color,
@@ -172,6 +229,25 @@ export default function AnalyticsClient({
             >
               Monthly Breakdown
             </button>
+          </div>
+
+          <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 gap-1 shrink-0" aria-label="Transaction types">
+            {(['all', 'expense', 'income', 'transfer', 'refund'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setTransactionFilter(filter)}
+                aria-pressed={transactionFilter === filter}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer border",
+                  transactionFilter === filter
+                    ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
+                    : "border-transparent text-white/50 hover:text-white/80 hover:bg-white/5"
+                )}
+              >
+                {filter === 'all' ? 'All' : filter === 'transfer' ? 'Self Transfer' : `${filter[0].toUpperCase()}${filter.slice(1)}${filter === 'expense' ? 's' : ''}`}
+              </button>
+            ))}
           </div>
 
           {/* View-specific controls */}
@@ -231,7 +307,8 @@ export default function AnalyticsClient({
       {activeView === 'yearly' && (
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {transactionFilter === 'expense' || transactionFilter === 'all' ? (
+          <div className={cn("grid grid-cols-1 gap-4", transactionFilter === 'all' ? "sm:grid-cols-2 xl:grid-cols-5" : "sm:grid-cols-3")}>
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
               <p className="text-emerald-300/70 text-sm mb-1">Total Income</p>
               {loading ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-emerald-300">{formatCurrency(data.totalIncome)}</p>}
@@ -240,6 +317,18 @@ export default function AnalyticsClient({
               <p className="text-rose-300/70 text-sm mb-1">Total Expenses</p>
               {loading ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-rose-300">{formatCurrency(data.totalExpense)}</p>}
             </div>
+            {transactionFilter === 'all' && (
+              <>
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
+                  <p className="text-amber-300/70 text-sm mb-1">Total Refunds</p>
+                  {loading ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-amber-300">{formatCurrency(data.totalRefund)}</p>}
+                </div>
+                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5">
+                  <p className="text-sky-300/70 text-sm mb-1">Self Transfers</p>
+                  {loading ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-sky-300">{formatCurrency(data.totalTransfer)}</p>}
+                </div>
+              </>
+            )}
             <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5">
               <p className="text-sky-300/70 text-sm mb-1">Net Savings</p>
               {loading ? <Skeleton className="h-8 w-32" /> : (
@@ -250,10 +339,17 @@ export default function AnalyticsClient({
               )}
             </div>
           </div>
+          ) : (
+            <div className={cn("rounded-2xl border p-5", transactionFilter === 'income' ? "border-emerald-500/20 bg-emerald-500/10" : transactionFilter === 'refund' ? "border-amber-500/20 bg-amber-500/10" : "border-sky-500/20 bg-sky-500/10")}>
+              <p className="text-white/60 text-sm mb-1">{transactionFilter === 'transfer' ? 'Self Transfers' : transactionFilter === 'refund' ? 'Refunds' : 'Income'}</p>
+              {loading ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-white">{formatCurrency(transactionFilter === 'transfer' ? data.totalTransfer : transactionFilter === 'refund' ? data.totalRefund : data.totalIncome)}</p>}
+            </div>
+          )}
 
+          {transactionFilter !== 'all' && <>
           {/* Monthly Trend Bar */}
           <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-            <h3 className="text-white font-semibold mb-4">Monthly Income vs Expense — {year}</h3>
+            <h3 className="text-white font-semibold mb-4">{transactionFilter === 'expense' ? 'Monthly Income vs Expense' : `Monthly ${categoryLabel} Transactions`} — {year}</h3>
             {loading ? <Skeleton className="h-72 w-full" /> : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={data.monthly} barGap={6}>
@@ -262,8 +358,10 @@ export default function AnalyticsClient({
                   <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tick={{ fill: 'rgba(255,255,255,0.5)' }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                   <Tooltip content={<CUSTOM_TOOLTIP />} />
                   <Legend wrapperStyle={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }} />
-                  <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expense" name="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  {(transactionFilter === 'expense' || transactionFilter === 'income') && <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />}
+                  {transactionFilter === 'expense' && <Bar dataKey="expense" name="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />}
+                  {transactionFilter === 'refund' && <Bar dataKey="refund" name="Refund" fill="#f59e0b" radius={[4, 4, 0, 0]} />}
+                  {transactionFilter === 'transfer' && <Bar dataKey="transfer" name="Self Transfer" fill="#38bdf8" radius={[4, 4, 0, 0]} />}
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -271,24 +369,34 @@ export default function AnalyticsClient({
 
           {/* Savings Trend Line */}
           <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-            <h3 className="text-white font-semibold mb-4">Monthly Savings Trend</h3>
+            <h3 className="text-white font-semibold mb-4">Monthly {trendLabel} Trend</h3>
             {loading ? <Skeleton className="h-56 w-full" /> : (
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={data.monthly.map((m) => ({ ...m, savings: m.income - m.expense }))}>
+                <LineChart data={data.monthly.map((m) => ({
+                  ...m,
+                  trendValue: transactionFilter === 'refund'
+                    ? m.refund
+                    : transactionFilter === 'transfer'
+                      ? m.transfer
+                      : transactionFilter === 'income'
+                        ? m.income
+                        : m.income + m.refund - m.expense,
+                }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="month" stroke="rgba(255,255,255,0.3)" fontSize={12} tick={{ fill: 'rgba(255,255,255,0.5)' }} />
                   <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tick={{ fill: 'rgba(255,255,255,0.5)' }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                   <Tooltip content={<CUSTOM_TOOLTIP />} />
-                  <Line type="monotone" dataKey="savings" name="Savings" stroke="#38bdf8" strokeWidth={2.5} dot={{ fill: '#38bdf8', r: 4 }} />
+                  <Line type="monotone" dataKey="trendValue" name={trendLabel} stroke="#38bdf8" strokeWidth={2.5} dot={{ fill: '#38bdf8', r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             )}
           </div>
+          </>}
 
           {/* Category Breakdown */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {transactionFilter !== 'transfer' && transactionFilter !== 'all' && <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-              <h3 className="text-white font-semibold mb-4">Expense by Category</h3>
+              <h3 className="text-white font-semibold mb-4">{categoryLabel} by Category</h3>
               {loading ? <Skeleton className="h-64 w-full" /> : pieData.length === 0 ? (
                 <div className="h-64 flex items-center justify-center text-white/30 text-sm">No data for {year}</div>
               ) : (
@@ -309,15 +417,15 @@ export default function AnalyticsClient({
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-              <h3 className="text-white font-semibold mb-4">Top Categories</h3>
+              <h3 className="text-white font-semibold mb-4">Top {categoryLabel} Categories</h3>
               {loading ? (
                 <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-              ) : data.categoryBreakdown.length === 0 ? (
-                <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses for {year}</div>
+              ) : yearlyCategoryBreakdown.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-white/30 text-sm">No {categoryLabel.toLowerCase()} category data for {year}</div>
               ) : (
                 <div className="space-y-3">
-                  {data.categoryBreakdown.map((cat) => {
-                    const pct = data.totalExpense > 0 ? (cat.amount / data.totalExpense) * 100 : 0;
+                  {yearlyCategoryBreakdown.map((cat) => {
+                    const pct = yearlyCategoryTotal > 0 ? (cat.amount / yearlyCategoryTotal) * 100 : 0;
                     return (
                       <div key={cat.name}>
                         <div className="flex items-center justify-between mb-1">
@@ -339,7 +447,31 @@ export default function AnalyticsClient({
                 </div>
               )}
             </div>
-          </div>
+
+            {categoryTransactionType !== 'income' && <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
+              <h3 className="text-white font-semibold mb-4">Top {categoryLabel} Merchants</h3>
+              {loading ? (
+                <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+              ) : yearlyMerchantBreakdown.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-white/30 text-sm">No {categoryLabel.toLowerCase()} merchant data for {year}</div>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {yearlyMerchantBreakdown.map((merchant) => {
+                    const pct = yearlyCategoryTotal > 0 ? (merchant.amount / yearlyCategoryTotal) * 100 : 0;
+                    return (
+                      <div key={merchant.name} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5">
+                        <div className="min-w-0">
+                          <p className="text-white/80 text-sm truncate">{merchant.name}</p>
+                          <p className="text-white/40 text-xs">{pct.toFixed(1)}% of {categoryLabel.toLowerCase()}</p>
+                        </div>
+                        <span className="text-white font-semibold text-sm shrink-0">{formatCurrency(merchant.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>}
+          </div>}
         </div>
       )}
 
@@ -347,7 +479,8 @@ export default function AnalyticsClient({
       {activeView === 'monthly' && (
         <div className="space-y-6">
           {/* Monthly summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {transactionFilter === 'expense' || transactionFilter === 'all' ? (
+          <div className={cn("grid grid-cols-1 gap-4", transactionFilter === 'all' ? "sm:grid-cols-2 xl:grid-cols-5" : "sm:grid-cols-3")}>
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
               <p className="text-emerald-300/70 text-sm mb-1">Income this Month</p>
               {monthlyLoading || !monthlyData ? (
@@ -364,6 +497,18 @@ export default function AnalyticsClient({
                 <p className="text-2xl font-bold text-rose-300">{formatCurrency(monthlyData.totalExpense)}</p>
               )}
             </div>
+            {transactionFilter === 'all' && (
+              <>
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
+                  <p className="text-amber-300/70 text-sm mb-1">Refunds this Month</p>
+                  {monthlyLoading || !monthlyData ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-amber-300">{formatCurrency(monthlyData.totalRefund)}</p>}
+                </div>
+                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5">
+                  <p className="text-sky-300/70 text-sm mb-1">Self Transfers</p>
+                  {monthlyLoading || !monthlyData ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-sky-300">{formatCurrency(monthlyData.totalTransfer)}</p>}
+                </div>
+              </>
+            )}
             <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5">
               <p className="text-sky-300/70 text-sm mb-1">Net Savings</p>
               {monthlyLoading || !monthlyData ? (
@@ -382,9 +527,15 @@ export default function AnalyticsClient({
               )}
             </div>
           </div>
+          ) : (
+            <div className={cn("rounded-2xl border p-5", transactionFilter === 'income' ? "border-emerald-500/20 bg-emerald-500/10" : transactionFilter === 'refund' ? "border-amber-500/20 bg-amber-500/10" : "border-sky-500/20 bg-sky-500/10")}>
+              <p className="text-white/60 text-sm mb-1">{transactionFilter === 'transfer' ? 'Self Transfers' : transactionFilter === 'refund' ? 'Refunds' : 'Income'}</p>
+              {monthlyLoading || !monthlyData ? <Skeleton className="h-8 w-32" /> : <p className="text-2xl font-bold text-white">{formatCurrency(transactionFilter === 'transfer' ? monthlyData.totalTransfer : transactionFilter === 'refund' ? monthlyData.totalRefund : monthlyData.totalIncome)}</p>}
+            </div>
+          )}
 
           {/* Monthly Breakdown Data */}
-          {monthlyLoading || !monthlyData ? (
+          {transactionFilter !== 'transfer' && transactionFilter !== 'all' && (monthlyLoading || !monthlyData ? (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <Skeleton className="h-64 col-span-1" />
               <Skeleton className="h-64 col-span-1" />
@@ -394,9 +545,9 @@ export default function AnalyticsClient({
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               {/* Pie Chart of category expenses */}
               <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-                <h3 className="text-white font-semibold mb-4">Category Expenses</h3>
-                {monthlyData.categoryBreakdown.length === 0 ? (
-                  <div className="h-64 flex items-center justify-center text-white/30 text-sm">No expenses this month</div>
+                <h3 className="text-white font-semibold mb-4">{categoryLabel} by Category</h3>
+                {monthlyCategoryBreakdown.length === 0 ? (
+                  <div className="h-64 flex items-center justify-center text-white/30 text-sm">No {categoryLabel.toLowerCase()} categories this month</div>
                 ) : (
                   <div className="relative outline-none">
                     <ResponsiveContainer width="100%" height={220} className="outline-none">
@@ -406,7 +557,7 @@ export default function AnalyticsClient({
                         style={{ outline: 'none' }}
                       >
                         <Pie
-                          data={monthlyData.categoryBreakdown.map((c: any) => ({
+                          data={monthlyCategoryBreakdown.map((c: any) => ({
                             name: c.name,
                             value: c.amount,
                             color: c.color,
@@ -446,7 +597,7 @@ export default function AnalyticsClient({
                             setActiveCategorySlice(null);
                           }}
                         >
-                          {monthlyData.categoryBreakdown.map((c: any, i: number) => {
+                          {monthlyCategoryBreakdown.map((c: any, i: number) => {
                             const isSelected = activeCategorySlice?.name === c.name;
                             const hasSelection = activeCategorySlice !== null;
                             return (
@@ -476,10 +627,10 @@ export default function AnalyticsClient({
                       ) : (
                         <div className="p-2 animate-in fade-in duration-200">
                           <span className="text-[9px] text-white/40 uppercase font-bold tracking-wider block leading-none">
-                            Total Cost
+                            Total {categoryLabel}
                           </span>
                           <span className="text-xs font-extrabold text-white mt-1.5 block">
-                            {formatCurrency(monthlyData.totalExpense)}
+                            {formatCurrency(monthlyCategoryTotal)}
                           </span>
                         </div>
                       )}
@@ -490,13 +641,13 @@ export default function AnalyticsClient({
 
               {/* Progress bars list of category totals */}
               <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-                <h3 className="text-white font-semibold mb-4">Category Breakdown</h3>
-                {monthlyData.categoryBreakdown.length === 0 ? (
-                  <div className="py-12 text-center text-white/30 text-sm">No category expenses</div>
+                <h3 className="text-white font-semibold mb-4">{categoryLabel} Categories</h3>
+                {monthlyCategoryBreakdown.length === 0 ? (
+                  <div className="py-12 text-center text-white/30 text-sm">No {categoryLabel.toLowerCase()} categories</div>
                 ) : (
                   <div className="space-y-3 max-h-75 overflow-y-auto overflow-x-hidden pr-2">
-                    {monthlyData.categoryBreakdown.map((cat: any) => {
-                      const pct = monthlyData.totalExpense > 0 ? (cat.amount / monthlyData.totalExpense) * 100 : 0;
+                    {monthlyCategoryBreakdown.map((cat: any) => {
+                      const pct = monthlyCategoryTotal > 0 ? (cat.amount / monthlyCategoryTotal) * 100 : 0;
                       return (
                         <div
                           key={cat.name}
@@ -504,7 +655,7 @@ export default function AnalyticsClient({
                             const catId = cat._id;
                             const filteredTxs = (monthlyData.transactions || []).filter((tx: any) => {
                               const tCatId = tx.categoryId?._id?.toString() || tx.categoryId?.toString();
-                              return tCatId === catId;
+                              return tCatId === catId && tx.type === categoryTransactionType;
                             });
                             setSelectedCategoryTxs({
                               id: catId,
@@ -537,14 +688,14 @@ export default function AnalyticsClient({
               </div>
 
               {/* Top Merchants list */}
-              <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
-                <h3 className="text-white font-semibold mb-4">Merchant Breakdown</h3>
-                {monthlyData.merchantBreakdown.length === 0 ? (
-                  <div className="py-12 text-center text-white/30 text-sm">No merchant expenses</div>
+              {categoryTransactionType !== 'income' && <div className="rounded-2xl border border-white/10 bg-(--card-bg) p-5">
+                <h3 className="text-white font-semibold mb-4">{categoryLabel} Merchants</h3>
+                {monthlyMerchantBreakdown.length === 0 ? (
+                  <div className="py-12 text-center text-white/30 text-sm">No {categoryLabel.toLowerCase()} merchants</div>
                 ) : (
                   <div className="space-y-3 max-h-75 overflow-y-auto overflow-x-hidden pr-2">
-                    {monthlyData.merchantBreakdown.map((m: any, idx: number) => {
-                      const pct = monthlyData.totalExpense > 0 ? (m.amount / monthlyData.totalExpense) * 100 : 0;
+                    {monthlyMerchantBreakdown.map((m: any, idx: number) => {
+                      const pct = monthlyCategoryTotal > 0 ? (m.amount / monthlyCategoryTotal) * 100 : 0;
                       return (
                         <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                           <div className="min-w-0 flex-1">
@@ -557,9 +708,9 @@ export default function AnalyticsClient({
                     })}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
-          )}
+          ))}
         </div>
       )}
 

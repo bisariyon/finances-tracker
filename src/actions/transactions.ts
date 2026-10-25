@@ -479,18 +479,39 @@ export async function getAnalyticsData(year: number) {
       expense: monthTx
         .filter((t) => t.type === "expense")
         .reduce((s, t) => s + t.amount, 0),
+      transfer: monthTx
+        .filter((t) => t.type === "transfer")
+        .reduce((s, t) => s + t.amount, 0),
+      refund: monthTx
+        .filter((t) => t.type === "refund")
+        .reduce((s, t) => s + t.amount, 0),
     };
   });
 
   // Category breakdown for year
-  const categoryMap: Record<
-    string,
-    { name: string; color: string; icon: string; amount: number }
-  > = {};
+  const categoryMaps: Record<
+    "expense" | "income" | "refund",
+    Record<string, { name: string; color: string; icon: string; amount: number }>
+  > = { expense: {}, income: {}, refund: {} };
+  const merchantMaps: Record<
+    "expense" | "refund",
+    Record<string, { name: string; amount: number }>
+  > = { expense: {}, refund: {} };
   for (const tx of allTx) {
-    if (tx.type === "expense" && tx.categoryId) {
+    if ((tx.type === "expense" || tx.type === "refund") && tx.merchantName) {
+      const merchantMap = merchantMaps[tx.type];
+      if (!merchantMap[tx.merchantName]) {
+        merchantMap[tx.merchantName] = { name: tx.merchantName, amount: 0 };
+      }
+      merchantMap[tx.merchantName].amount += tx.amount;
+    }
+    if (
+      (tx.type === "expense" || tx.type === "income" || tx.type === "refund") &&
+      tx.categoryId
+    ) {
       const cat = tx.categoryId as any;
       const key = cat._id.toString();
+      const categoryMap = categoryMaps[tx.type];
       if (!categoryMap[key])
         categoryMap[key] = {
           name: cat.name,
@@ -508,15 +529,35 @@ export async function getAnalyticsData(year: number) {
   const totalExpense = allTx
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
+  const totalTransfer = allTx
+    .filter((t) => t.type === "transfer")
+    .reduce((s, t) => s + t.amount, 0);
+  const totalRefund = allTx
+    .filter((t) => t.type === "refund")
+    .reduce((s, t) => s + t.amount, 0);
 
   return serializeDocument({
     monthly,
-    categoryBreakdown: Object.values(categoryMap).sort(
+    categoryBreakdown: Object.values(categoryMaps.expense).sort(
+      (a, b) => b.amount - a.amount,
+    ),
+    incomeCategoryBreakdown: Object.values(categoryMaps.income).sort(
+      (a, b) => b.amount - a.amount,
+    ),
+    refundCategoryBreakdown: Object.values(categoryMaps.refund).sort(
+      (a, b) => b.amount - a.amount,
+    ),
+    merchantBreakdown: Object.values(merchantMaps.expense).sort(
+      (a, b) => b.amount - a.amount,
+    ),
+    refundMerchantBreakdown: Object.values(merchantMaps.refund).sort(
       (a, b) => b.amount - a.amount,
     ),
     totalIncome,
     totalExpense,
-    savings: totalIncome - totalExpense,
+    totalTransfer,
+    totalRefund,
+    savings: totalIncome + totalRefund - totalExpense,
   });
 }
 
@@ -540,15 +581,58 @@ export async function getMonthlyBreakdown(year: number, month: number) {
     string,
     { _id?: string; name: string; color: string; icon: string; amount: number }
   > = {};
+  const incomeCategoryMap: typeof categoryMap = {};
+  const refundCategoryMap: typeof categoryMap = {};
   
   const merchantMap: Record<string, { name: string; amount: number }> = {};
+  const refundMerchantMap: Record<string, { name: string; amount: number }> = {};
   
   let totalIncome = 0;
   let totalExpense = 0;
+  let totalTransfer = 0;
+  let totalRefund = 0;
 
   for (const tx of txs) {
     if (tx.type === "income") {
       totalIncome += tx.amount;
+      if (tx.categoryId) {
+        const cat = tx.categoryId as any;
+        const catId = cat._id.toString();
+        if (!incomeCategoryMap[catId]) {
+          incomeCategoryMap[catId] = {
+            _id: catId,
+            name: cat.name,
+            color: cat.color,
+            icon: cat.icon,
+            amount: 0,
+          };
+        }
+        incomeCategoryMap[catId].amount += tx.amount;
+      }
+    } else if (tx.type === "refund") {
+      totalRefund += tx.amount;
+      if (tx.categoryId) {
+        const cat = tx.categoryId as any;
+        const catId = cat._id.toString();
+        if (!refundCategoryMap[catId]) {
+          refundCategoryMap[catId] = {
+            _id: catId,
+            name: cat.name,
+            color: cat.color,
+            icon: cat.icon,
+            amount: 0,
+          };
+        }
+        refundCategoryMap[catId].amount += tx.amount;
+      }
+      if (tx.merchantName) {
+        if (!refundMerchantMap[tx.merchantName]) {
+          refundMerchantMap[tx.merchantName] = { name: tx.merchantName, amount: 0 };
+        }
+        refundMerchantMap[tx.merchantName].amount += tx.amount;
+      }
+    } else if (tx.type === "transfer") {
+      totalTransfer += tx.amount;
     } else if (tx.type === "expense") {
       totalExpense += tx.amount;
       
@@ -580,9 +664,14 @@ export async function getMonthlyBreakdown(year: number, month: number) {
   return serializeDocument({
     totalIncome,
     totalExpense,
-    savings: totalIncome - totalExpense,
+    totalTransfer,
+    totalRefund,
+    savings: totalIncome + totalRefund - totalExpense,
     categoryBreakdown: Object.values(categoryMap).sort((a, b) => b.amount - a.amount),
+    incomeCategoryBreakdown: Object.values(incomeCategoryMap).sort((a, b) => b.amount - a.amount),
+    refundCategoryBreakdown: Object.values(refundCategoryMap).sort((a, b) => b.amount - a.amount),
     merchantBreakdown: Object.values(merchantMap).sort((a, b) => b.amount - a.amount),
+    refundMerchantBreakdown: Object.values(refundMerchantMap).sort((a, b) => b.amount - a.amount),
     transactions: txs,
   });
 }

@@ -412,7 +412,7 @@ export default function TransactionsClient({
                               return dest ? `→ ${dest}` : 'Transfer';
                             })()
                             : tx.type === 'income'
-                              ? (tx.notes || 'Income')
+                              ? (tx.categoryId?.name || tx.notes || 'Income')
                               : (tx.merchantName || tx.notes || tx.categoryId?.name || '—')}
                         </p>
                         <div className="flex flex-wrap items-center gap-1 mt-0.5">
